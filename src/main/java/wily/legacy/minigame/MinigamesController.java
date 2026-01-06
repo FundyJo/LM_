@@ -127,10 +127,8 @@ public class MinigamesController {
     }
 
     private static String getLevelId(Level level) {
-        if (level instanceof ServerLevel serverLevel) {
-            return serverLevel.dimension().location().toString().replace(":", "_").replace("/", "_");
-        }
-        return "unknown";
+        // Works for both ServerLevel and ClientLevel
+        return level.dimension().location().toString().replace(":", "_").replace("/", "_");
     }
 
     public void writeNbt(CompoundTag tag) {
@@ -190,9 +188,14 @@ public class MinigamesController {
         MinigamesController controller = new MinigamesController();
         controller.level = level;
 
-        // Nur Config initialisieren wenn wir in einem Minigame-Server sind
+        // Initialize config for both server-side minigame servers AND client-side levels
+        // Client-side needs config registered so it can receive synced configs from server
         MinecraftServer server = level.getServer();
         if (server instanceof IMinecraftServer minigameServer && minigameServer.isMinigameServer()) {
+            // Server-side: initialize config for minigame server
+            controller.initConfig(level);
+        } else if (level.isClientSide()) {
+            // Client-side: also initialize config so we can receive synced data from server
             controller.initConfig(level);
         }
 
