@@ -1,0 +1,258 @@
+package wily.legacy.util;
+
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.presets.WorldPreset;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import wily.factoryapi.FactoryAPI;
+import wily.legacy.client.LegacyTipManager;
+
+public class LegacyComponents {
+    public static final Component RESOURCE_ALBUMS = Component.translatable("legacy.menu.albums.resource");
+    public static final Component ALBUM_OPTIONS = Component.translatable("legacy.menu.album_options");
+    public static final Component GLOBAL_RESOURCE_PACKS = Component.translatable("legacy.menu.global_packs.resource");
+    public static final Component SELECT = Component.translatable("mco.template.button.select");
+    public static final Component USE = Component.translatable("key.use");
+    public static final Component ACTION = Component.translatable("key.attack");
+    public static final Component ADD = Component.translatable("legacy.action.add");
+    public static final Component ADD_PAGE = Component.translatable("legacy.action.add_page");
+    public static final Component ATTACH = Component.translatable("legacy.action.attach");
+    public static final Component ALL_RECIPES = Component.translatable("legacy.action.all_recipes");
+    public static final Component BLOCK = Component.translatable("legacy.action.block");
+    public static final Component BOOST = Component.translatable("legacy.action.boost");
+    public static final Component BRUSH = Component.translatable("legacy.action.brush");
+    public static final Component CANCEL = Component.translatable("legacy.action.cancel");
+    public static final Component CARVE = Component.translatable("legacy.action.carve");
+    public static final Component CHANGE_FILTER = Component.translatable("legacy.action.change_filter");
+    public static final Component CHANGE_PITCH = Component.translatable("legacy.action.change_pitch");
+    public static final Component CHARGE = Component.translatable("legacy.action.charge");
+    public static final Component CLEAR = Component.translatable("legacy.action.clear");
+    public static final Component CLEAR_QUICK_SELECT = Component.translatable("legacy.action.clear_quick_select");
+    public static final Component COLLECT = Component.translatable("legacy.action.collect");
+    public static final Component COOK = Component.translatable("legacy.action.cook");
+    public static final Component CREATE = Component.translatable("legacy.action.create");
+    public static final Component DIG_PATH = Component.translatable("legacy.action.dig_path");
+    public static final Component DISMOUNT = Component.translatable("legacy.action.dismount");
+    public static final Component DISTRIBUTE = Component.translatable("legacy.action.distribute");
+    public static final Component DRAW = Component.translatable("legacy.action.draw");
+    public static final Component DRINK = Component.translatable("legacy.action.drink");
+    public static final Component DROP = Component.translatable("legacy.action.drop");
+    public static final Component DROP_ALL = Component.translatable("legacy.action.drop_all");
+    public static final Component DROP_ONE = Component.translatable("legacy.action.drop_one");
+    public static final Component DYE = Component.translatable("legacy.action.dye");
+    public static final Component EAT = Component.translatable("legacy.action.eat");
+    public static final Component EJECT = Component.translatable("legacy.action.eject");
+    public static final Component EMPTY = Component.translatable("legacy.action.empty");
+    public static final Component EQUIP = Component.translatable("legacy.action.equip");
+    public static final Component EXIT = Component.translatable("legacy.action.exit");
+    public static final Component EXIT_SEARCH_MODE = Component.translatable("legacy.action.exit_search_mode");
+    public static final Component FEED = Component.translatable("legacy.action.feed");
+    public static final Component FILL = Component.translatable("legacy.action.fill");
+    public static final Component FOLLOW_ME = Component.translatable("legacy.action.follow_me");
+    public static final Component GROUP = Component.translatable("legacy.action.group");
+    public static final Component GROW = Component.translatable("legacy.action.grow");
+    public static final Component HANG = Component.translatable("legacy.action.hang");
+    public static final Component HEAL = Component.translatable("legacy.action.heal");
+    public static final Component HIT = Component.translatable("legacy.action.hit");
+    public static final Component IGNITE = Component.translatable("legacy.action.ignite");
+    public static final Component INFO = Component.translatable("legacy.action.info");
+    public static final Component INVERT = Component.translatable("legacy.action.invert");
+    public static final Component LAUNCH = Component.translatable("legacy.action.launch");
+    public static final Component LEASH = Component.translatable("legacy.action.leash");
+    public static final Component LOCK = Component.translatable("legacy.action.lock");
+    public static final Component LOVE_MODE = Component.translatable("legacy.action.love_mode");
+    public static final Component MINE = Component.translatable("legacy.action.mine");
+    public static final Component MIX = Component.translatable("legacy.action.mix");
+    public static final Component MOUNT = Component.translatable("legacy.action.mount");
+    public static final Component MOVE_FUEL = Component.translatable("legacy.action.move_fuel");
+    public static final Component MOVE_INGREDIENT = Component.translatable("legacy.action.move_ingredient");
+    public static final Component MOVE_KEYBOARD = Component.translatable("legacy.action.move_keyboard");
+    public static final Component MOVE_LAYER = Component.translatable("legacy.action.move_layer");
+    public static final Component MOVE_UP_DOWN = Component.translatable("legacy.action.move_up_down");
+    public static final Component NAME = Component.translatable("legacy.action.name");
+    public static final Component NEXT_PAGE = Component.translatable("legacy.action.next_page");
+    public static final Component OPEN = Component.translatable("legacy.action.open");
+    public static final Component OPEN_DIRECTORY = Component.translatable("legacy.action.open_directory");
+    public static final Component PAGE = Component.translatable("legacy.action.page");
+    public static final Component PAGE_DOWN = Component.translatable("legacy.action.page_down");
+    public static final Component PAGE_UP = Component.translatable("legacy.action.page_up");
+    public static final Component PEEL_BARK = Component.translatable("legacy.action.peel_bark");
+    public static final Component PICK_ENTITY = Component.translatable("legacy.action.pick_entity");
+    public static final Component PICK_UP = Component.translatable("legacy.action.pick_up");
+    public static final Component PLACE = Component.translatable("legacy.action.place");
+    public static final Component PLACE_ALL = Component.translatable("legacy.action.place_all");
+    public static final Component PLACE_ONE = Component.translatable("legacy.action.place_one");
+    public static final Component PLANT = Component.translatable("legacy.action.plant");
+    public static final Component PLAY = Component.translatable("legacy.action.play");
+    public static final Component PRESETS = Component.translatable("legacy.action.presets");
+    public static final Component PREVIOUS_PAGE = Component.translatable("legacy.action.previous_page");
+    public static final Component QUICK_MOVE = Component.translatable("legacy.action.quick_move");
+    public static final Component RELEASE = Component.translatable("legacy.action.release");
+    public static final Component REMOVE = Component.translatable("legacy.action.remove");
+    public static final Component REPAIR = Component.translatable("legacy.action.repair");
+    public static final Component RIDE = Component.translatable("legacy.action.ride");
+    public static final Component ROTATE = Component.translatable("legacy.action.rotate");
+    public static final Component SADDLE = Component.translatable("legacy.action.saddle");
+    public static final Component SAIL = Component.translatable("legacy.action.sail");
+    public static final Component SEARCH_MODE = Component.translatable("legacy.action.search_mode");
+    public static final Component SELECT_TAB = Component.translatable("legacy.action.select_tab");
+    public static final Component SHEAR = Component.translatable("legacy.action.shear");
+    public static final Component SEND_COMMAND = Component.translatable("legacy.action.send_command");
+    public static final Component SEND_MESSAGE = Component.translatable("legacy.action.send_message");
+    public static final Component SHOW_ADVANCED_OPTIONS = Component.translatable("legacy.action.show_advanced_options");
+    public static final Component SHOW_CHAT = Component.translatable("legacy.action.show_chat");
+    public static final Component SHOW_CRAFTABLE_RECIPES = Component.translatable("legacy.action.show_craftable_recipes");
+    public static final Component SHOW_DESCRIPTION = Component.translatable("legacy.action.show_description");
+    public static final Component SHOW_KEYBOARD = Component.translatable("legacy.action.show_keyboard");
+    public static final Component SHOW_RESOURCE_PACKS = Component.translatable("legacy.action.show_resource_packs");
+    public static final Component SIT = Component.translatable("legacy.action.sit");
+    public static final Component SLEEP = Component.translatable("legacy.action.sleep");
+    public static final Component SWAP = Component.translatable("legacy.action.swap");
+    public static final Component SWIM_UP = Component.translatable("legacy.action.swim_up");
+    public static final Component TAKE = Component.translatable("legacy.action.take");
+    public static final Component TAKE_ALL = Component.translatable("legacy.action.take_all");
+    public static final Component TAKE_HALF = Component.translatable("legacy.action.take_half");
+    public static final Component TAME = Component.translatable("legacy.action.tame");
+    public static final Component THROW = Component.translatable("legacy.action.throw");
+    public static final Component TILL = Component.translatable("legacy.action.till");
+    public static final Component TRADE = Component.translatable("legacy.action.trade");
+    public static final Component TYPE = Component.translatable("legacy.action.type");
+    public static final Component UNLOCK = Component.translatable("legacy.action.unlock");
+    public static final Component USE_SUGGESTION = Component.translatable("legacy.action.use_suggestion");
+    public static final Component WAKE_UP = Component.translatable("legacy.action.wake_up");
+    public static final Component WHATS_THIS = Component.translatable("legacy.action.whats_this");
+    public static final Component ZOOM = Component.translatable("legacy.action.zoom");
+    public static final Component HOLD_TO_DESCEND = Component.translatable("legacy.action.hold_to_descend");
+    public static final Component LAYER_OPTIONS = Component.translatable("legacy.menu.create_flat_world.layer_options");
+    public static final Component LAYER_MESSAGE = Component.translatable("legacy.menu.create_flat_world.layer_message");
+    public static final Component AUTOSAVE_MESSAGE = Component.translatable("legacy.menu.autoSave_message");
+    public static final Component SAVE_OPTIONS = Component.translatable("legacy.menu.save_options");
+    public static final Component SAVE_OPTIONS_MESSAGE = Component.translatable("legacy.menu.save_options_message");
+    public static final Component SAVE_GAME = Component.translatable("legacy.menu.save");
+    public static final Component SAVE_GAME_MESSAGE = Component.translatable("legacy.menu.save_message");
+    public static final Component ENABLE_AUTO_SAVE = Component.translatable("legacy.menu.enable_autosave");
+    public static final Component ENABLE_AUTO_SAVE_MESSAGE = Component.translatable("legacy.menu.enable_autosave_message");
+    public static final Component DISABLE_AUTO_SAVE = Component.translatable("legacy.menu.disable_autosave");
+    public static final Component DISABLE_AUTO_SAVE_MESSAGE = Component.translatable("legacy.menu.disable_autosave_message");
+    public static final Component SERVER_OPTIONS = Component.translatable("legacy.menu.server_options");
+    public static final Component SERVER_OPTIONS_MESSAGE = Component.translatable("legacy.menu.server_options_message");
+    public static final Component MISSING_WORLD_TEMPLATE = Component.translatable("legacy.menu.missing_world_template");
+    public static final Component DOWNLOADING_WORLD_TEMPLATE = Component.translatable("legacy.menu.downloading_world_template");
+    public static final Component OPTIONS_PRESET_MESSAGE = Component.translatable("legacy.menu.options_preset_message");
+    public static final Component GAME_OPTIONS = Component.translatable("legacy.menu.game_options");
+    public static final Component WORLD_OPTIONS = Component.translatable("createWorld.tab.world.title");
+    public static final Component INGREDIENTS = Component.translatable("legacy.container.ingredients");
+    public static final Component COLOR_TAB = Component.translatable("legacy.container.tab.color");
+    public static final Component SHAPE_TAB = Component.translatable("legacy.container.tab.shape");
+    public static final Component EFFECT_TAB = Component.translatable("legacy.container.tab.effect");
+    public static final Component SELECT_STAR_TAB = Component.translatable("legacy.container.tab.select_star");
+    public static final Component ADD_FADE_TAB = Component.translatable("legacy.container.tab.add_fade");
+    public static final Component ADD_POWER_TAB = Component.translatable("legacy.container.tab.add_power");
+    public static final Component SELECT_SHIELD = Component.translatable("legacy.container.tab.select_shield");
+    public static final Component COPY_BANNER = Component.translatable("legacy.container.tab.copy_banner");
+    public static final Component ADD_SHERD = Component.translatable("legacy.container.tab.add_pottery_sherd");
+    public static final Component SELECT_BANNER_TAB = Component.translatable("legacy.container.tab.select_banner");
+    public static final Component CREATE_BANNER_TAB = Component.translatable("legacy.container.tab.create_banner");
+    public static final Component TAKE_BOOK = Component.translatable("lectern.take_book");
+    public static final Component PREVIEW = Component.translatable("legacy.container.preview");
+    public static final Component DECORATIONS = Component.translatable("legacy.createWorld.customize.superFlat.decorations");
+    public static final Component LAVA_LAKES = Component.translatable("legacy.createWorld.customize.superFlat.lavaLakes");
+    public static final Component RESPAWNING = Component.translatable("legacy.menu.respawning");
+    public static final Component OPEN_LINK_TITLE = Component.translatable("legacy.menu.open_link_title");
+    public static final Component OPEN_LINK_MESSAGE = Component.translatable("legacy.menu.open_link_message");
+    public static final Component RESET_KNOWN_ENTITIES_TITLE = Component.translatable("legacy.menu.reset_known_entities");
+    public static final Component RESET_KNOWN_ENTITIES_MESSAGE = Component.translatable("legacy.menu.reset_known_entities_message");
+    public static final Component RESET_KNOWN_BLOCKS_TITLE = Component.translatable("legacy.menu.reset_known_blocks");
+    public static final Component RESET_KNOWN_BLOCKS_MESSAGE = Component.translatable("legacy.menu.reset_known_blocks_message");
+    public static final Component SELECTION = Component.literal("...");
+    public static final Component NONE = Component.translatable("legacy.options.none");
+    public static final Component NEEDS_RESTART = Component.translatable("legacy.options.needs_restart");
+    public static final Component MAY_BE_A_CHEAT = Component.translatable("legacy.options.may_be_a_cheat");
+    public static final Component ALPHABETICAL = Component.translatable("legacy.menu.sorting.alphabetical");
+    public static final Component ALL = Component.translatable("legacy.menu.settings.all");
+    public static final Component ACCEPT = Component.translatable("legacy.menu.accept");
+    public static final Component STRUCTURES = Component.translatable("legacy.container.tab.structures");
+    public static final Component MECHANISMS = Component.translatable("legacy.container.tab.mechanisms");
+    public static final Component TOOLS_AND_ARMOUR = Component.translatable("legacy.container.tab.tools_and_armour");
+    public static final Component MISC = Component.translatable("legacy.container.tab.misc");
+    public static final Component SEARCH_ITEMS = Component.translatable("itemGroup.search");
+    public static final Component CONFLICTING_BUTTONS = Component.translatable("legacy.options.controllerMappingConflicting");
+    public static final Component CONFLICTING_KEYS = Component.translatable("legacy.options.keyMappingConflicting");
+    public static final Component PEACEFUL_SPAWN_TIP = Component.translatable("item.minecraft.spawn_egg.peaceful.tip");
+    public static final Component HOST_PRIVILEGES = Component.translatable("legacy.menu.hostPrivileges");
+    public static final Component HOST_PRIVILEGES_INFO = Component.translatable("legacy.menu.hostPrivileges.info");
+    public static final Component ADD_SERVER = Component.translatable("manageServer.add.title");
+    public static final Component EDIT_SERVER = Component.translatable("manageServer.edit.title");
+    public static final Component ENTER_NAME = Component.translatable("manageServer.enterName");
+    public static final Component ENTER_IP = Component.translatable("manageServer.enterIp");
+    public static final Component INITIALIZING = Component.translatable("legacy.connect.initializing");
+    public static final Component LOADING_SPAWN_AREA = Component.translatable("legacy.loading_spawn_area");
+    public static final Component PREPARING_AUTOSAVE = Component.translatable("legacy.menu.savingLevel.preparing");
+    public static final Component PREPARING_CHUNKS = Component.translatable("legacy.menu.savingLevel.preparing_chunks");
+    public static final Component FINALIZING = Component.translatable("legacy.menu.savingLevel.finalizing");
+    public static final Component SPAWN_EGG_TIP = Component.translatable("item.minecraft.spawn_egg.tip");
+    public static final Component MAP_NAME = Component.translatable("legacy.container.mapName");
+    public static final Component RENAME_MAP = Component.translatable("legacy.container.renameMap");
+    public static final Component ZOOM_MAP = Component.translatable("legacy.container.zoomMap");
+    public static final Component COPY_MAP = Component.translatable("legacy.container.copyMap");
+    public static final Component LOCK_MAP = Component.translatable("legacy.container.lockMap");
+    public static final Component WORLD_TYPE_DESCRIPTION = Component.translatable("legacy.menu.selectWorld.mapType.description");
+    public static final Component FLAT_DESCRIPTION = Component.translatable("legacy.menu.selectWorld.mapType.flat.description");
+    public static final Component AMPLIFIED_DESCRIPTION = Component.translatable("legacy.menu.selectWorld.mapType.amplified.description");
+    public static final Component LARGE_BIOMES_DESCRIPTION = Component.translatable("legacy.menu.selectWorld.mapType.large_biomes.description");
+    public static final Component SINGLE_BIOME_DESCRIPTION = Component.translatable("legacy.menu.selectWorld.mapType.single_biome_surface.description");
+    public static final Component FLAT_CUSTOMIZE_DESCRIPTION = Component.translatable("legacy.menu.selectWorld.mapType.flat.customize.description");
+    public static final Component SINGLE_BIOME_CUSTOMIZE_DESCRIPTION = Component.translatable("legacy.menu.selectWorld.mapType.single_biome_surface.customize.description");
+    public static final Component WORLD_TYPE_CUSTOMIZE_DESCRIPTION = Component.translatable("legacy.menu.selectWorld.mapType.customize.description");
+    public static final Component CONTROLLER_LED_PREVIEW = Component.translatable("legacy.options.controllerLedPreview");
+
+    public static Component getWorldTypeDescription(Holder<WorldPreset> preset) {
+        Component presetDescription = getWorldPresetDescription(preset);
+        return presetDescription == null ? WORLD_TYPE_DESCRIPTION : WORLD_TYPE_DESCRIPTION.copy().append("\n\n").append(presetDescription);
+    }
+
+    public static Component getWorldPresetDescription(Holder<WorldPreset> preset) {
+        if (preset == null)
+            return null;
+        else if (preset.is(WorldPresets.AMPLIFIED))
+            return AMPLIFIED_DESCRIPTION;
+        else if (preset.is(WorldPresets.FLAT))
+            return FLAT_DESCRIPTION;
+        else if (preset.is(WorldPresets.LARGE_BIOMES))
+            return LARGE_BIOMES_DESCRIPTION;
+        else if (preset.is(WorldPresets.SINGLE_BIOME_SURFACE))
+            return SINGLE_BIOME_DESCRIPTION;
+        else
+            return null;
+    }
+
+    public static Component getWorldPresetCustomizeDescription(Holder<WorldPreset> preset) {
+        if (preset == null)
+            return WORLD_TYPE_CUSTOMIZE_DESCRIPTION;
+        else if (preset.is(WorldPresets.FLAT))
+            return FLAT_CUSTOMIZE_DESCRIPTION;
+        else if (preset.is(WorldPresets.SINGLE_BIOME_SURFACE))
+            return SINGLE_BIOME_CUSTOMIZE_DESCRIPTION;
+        else
+            return WORLD_TYPE_CUSTOMIZE_DESCRIPTION;
+    }
+
+    public static Component optionName(String key) {
+        return Component.translatable("legacy.options." + key);
+    }
+
+    public static Component getDimensionName(ResourceKey<Level> dimension) {
+        String s = dimension.location().toLanguageKey("dimension");
+        return Component.translatable(!FactoryAPI.isClient() || LegacyTipManager.hasTip(s) ? s : "dimension.minecraft");
+    }
+
+    public static Component getEnteredDimensionMessage(Component name, ResourceKey<Level> dimension) {
+        return Component.translatable("legacy.chat.entered_dimension", name, getDimensionName(dimension));
+    }
+
+    public static Component getLeftDimensionMessage(Component name, ResourceKey<Level> dimension) {
+        return Component.translatable("legacy.chat.left_dimension", name, getDimensionName(dimension));
+    }
+}

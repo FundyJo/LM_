@@ -1,0 +1,465 @@
+package wily.legacy.client.screen;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.ComponentPath;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.layouts.LayoutElement;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.navigation.FocusNavigationEvent;
+import net.minecraft.client.gui.navigation.ScreenDirection;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.InputWithModifiers;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.texture.SpriteContents;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.sounds.SoundManager;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
+import org.jetbrains.annotations.Nullable;
+import wily.factoryapi.base.Stocker;
+import wily.factoryapi.base.client.FactoryGuiGraphics;
+import wily.factoryapi.util.FactoryScreenUtil;
+import wily.legacy.Legacy4JClient;
+import wily.legacy.client.CommonColor;
+import wily.legacy.client.ControlType;
+import wily.legacy.client.LegacyResourceManager;
+import wily.legacy.client.controller.BindingState;
+import wily.legacy.client.controller.ControllerBinding;
+import wily.legacy.init.LegacyRegistries;
+import wily.legacy.util.LegacyComponents;
+import wily.legacy.util.LegacySprites;
+import wily.legacy.util.client.LegacyRenderUtil;
+import wily.legacy.util.client.LegacySoundUtil;
+
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+public class KeyboardScreen extends OverlayPanelScreen {
+    public static final Component KEYBOARD = Component.translatable("legacy.menu.keyboard");
+    protected final LegacyScrollRenderer scrollRenderer = new LegacyScrollRenderer();
+    protected final KeyButton shiftButton;
+    protected final KeyButton upButton;
+    protected final KeyButton downButton;
+    protected final KeyButton rightButton;
+    protected final KeyButton leftButton;
+    protected final KeyButton backspaceButton;
+    protected final KeyButton confirmButton;
+    private final Supplier<GuiEventListener> listenerSupplier;
+    public boolean shift = false;
+    protected RenderableVList renderableVList = new RenderableVList(accessor).layoutSpacing(l -> 1);
+    protected RenderableVList leftKeyBar = new RenderableVList(accessor).layoutSpacing(l -> 0);
+    protected RenderableVList rightKeyBar = new RenderableVList(accessor).layoutSpacing(l -> 0);
+    protected boolean shiftLock = false;
+    protected int lastX = 0;
+    protected int lastY = 0;
+    protected int xDiff = 0;
+    protected int yDiff = 0;
+
+    public KeyboardScreen(Supplier<GuiEventListener> listener, Screen parent) {
+        this(60, listener, parent);
+    }
+
+    public KeyboardScreen(int yOffset, Supplier<GuiEventListener> listener, Screen parent) {
+        this((s, p) -> p.centeredLeftPos(s), (s, p) -> Math.min(p.centeredTopPos(s) + yOffset, s.height - p.height), listener, parent);
+    }
+
+    public KeyboardScreen(BiFunction<Screen, Panel, Integer> leftPosGetter, BiFunction<Screen, Panel, Integer> topPosGetter, Supplier<GuiEventListener> listener, Screen parent) {
+        this(s -> Panel.createPanel(s, p -> p.appearance(LegacySprites.PANEL, 385, 154), p -> p.pos(leftPosGetter.apply(s, p), topPosGetter.apply(s, p))), listener, parent);
+    }
+
+    public KeyboardScreen(Panel.Constructor<KeyboardScreen> panelConstructor, Supplier<GuiEventListener> listener, Screen parent) {
+        super(parent, panelConstructor.cast(), CommonComponents.EMPTY);
+        this.listenerSupplier = listener;
+        renderableVList.forceWidth = false;
+        darkBackground = false;
+        LegacyResourceManager.keyboardButtonBuilders.forEach(b -> renderableVList.addRenderable(b.build(this)));
+        leftKeyBar.addRenderable(leftButton = new KeyButton(InputConstants.KEY_LEFT, listenerSupplier, ControllerBinding.LEFT_BUMPER, LegacySprites.SCROLL_LEFT));
+        rightKeyBar.addRenderable(rightButton = new KeyButton(InputConstants.KEY_RIGHT, listenerSupplier, ControllerBinding.RIGHT_BUMPER, LegacySprites.SCROLL_RIGHT));
+        leftKeyBar.addRenderable(upButton = new KeyButton(InputConstants.KEY_UP, 20, listenerSupplier, null, LegacySprites.SCROLL_UP));
+        leftKeyBar.addRenderable(downButton = new KeyButton(InputConstants.KEY_DOWN, 20, listenerSupplier, null, LegacySprites.SCROLL_DOWN));
+        leftKeyBar.addRenderable(shiftButton = new KeyButton(InputConstants.KEY_LSHIFT, listenerSupplier, LegacyResourceManager.shiftBinding, LegacySprites.SHIFT) {
+            long lastRelease;
+
+            @Override
+            public boolean playSoundOnClick() {
+                return pressTime == 0 && !shiftLock;
+            }
+
+            @Override
+            public void onRelease() {
+                long millis = Util.getMillis();
+                if (!shiftLock) {
+                    if (pressTime >= 6 || millis - lastRelease <= 300) {
+                        LegacySoundUtil.playSimpleUISound(LegacyRegistries.SHIFT_LOCK.get(), 1.0f);
+                        shiftLock = true;
+                    }
+                    shift = !shift || shiftLock;
+                } else {
+                    shiftLock = false;
+                    LegacySoundUtil.playSimpleUISound(LegacyRegistries.SHIFT_UNLOCK.get(), 1.0f);
+                }
+                lastRelease = millis;
+                super.onRelease();
+            }
+
+            @Override
+            public ResourceLocation getSprite() {
+                return shiftLock ? LegacySprites.BUTTON_SLOT_SELECTED : super.getSprite();
+            }
+
+        });
+        rightKeyBar.addRenderable(backspaceButton = new KeyButton(InputConstants.KEY_BACKSPACE, listenerSupplier, ControllerBinding.LEFT_BUTTON, LegacySprites.BACK) {
+            @Override
+            public SoundEvent getDownSoundEvent() {
+                return LegacyRegistries.BACKSPACE.get();
+            }
+        });
+        rightKeyBar.addRenderable(confirmButton = new KeyButton(InputConstants.KEY_RETURN, listenerSupplier, ControllerBinding.START, LegacySprites.TICK) {
+            @Override
+            public void onPress(InputWithModifiers input) {
+                onClose();
+            }
+        });
+    }
+
+    public static boolean isOpenKey(int i) {
+        return i == InputConstants.KEY_NUMPADENTER && !Legacy4JClient.controllerManager.isControllerTheLastInput() || i == InputConstants.KEY_RETURN && Legacy4JClient.controllerManager.isControllerTheLastInput();
+    }
+
+    public static KeyboardScreen fromStaticListener(GuiEventListener listener, Screen parent) {
+        return listener instanceof LayoutElement e ? new KeyboardScreen((s, p) -> Math.max(0, Math.min(e.getX() + (e.getWidth() - p.width) / 2, s.width - p.width)), (s, p) -> Math.max(0, Math.min(s.height - (e.getY() + e.getHeight()) >= p.height ? e.getY() + e.getHeight() + 4 : e.getY() - p.getHeight() - 4, s.height - p.height)), () -> listener, parent) : new KeyboardScreen(() -> listener, parent);
+    }
+
+    @Override
+    public void addControlTooltips(ControlTooltip.Renderer renderer) {
+        super.addControlTooltips(renderer);
+        renderer.add(() -> ControlType.getActiveType().isKbm() ? ControlTooltip.getKeyIcon(InputConstants.MOUSE_BUTTON_LEFT) : ControllerBinding.RIGHT_STICK.getIcon(), () -> LegacyComponents.MOVE_KEYBOARD);
+    }
+
+    @Override
+    protected void init() {
+        panel.init();
+        panel.setPosition((lastX = panel.getX()) + xDiff, (lastY = panel.getY()) + yDiff);
+        renderableVList.init(panel.getX() + (panel.getWidth() - 259) / 2, panel.getY() + 28, 268, 124);
+        leftKeyBar.init(panel.getX() + 6, panel.getY() + 27, 50, 0);
+        rightKeyBar.init(panel.getX() + panel.getWidth() - 56, panel.getY() + 27, 50, 0);
+        if (getFocused() == null && !renderableVList.renderables.isEmpty() && renderableVList.renderables.get(0) instanceof GuiEventListener l)
+            setFocused(l);
+    }
+
+    @Override
+    public void resize(Minecraft minecraft, int i, int j) {
+        onClose();
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int i, int j, float f) {
+        super.render(guiGraphics, i, j, f);
+        if (getFocused() instanceof CharButton c) c.renderTooltip(guiGraphics, i, j, f);
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent characterEvent) {
+        for (Renderable renderable : renderableVList.renderables) {
+            if (renderable instanceof CharButton b && b.matches(characterEvent)) {
+                if (b.isFocused()) b.onRelease();
+                else setFocused(b);
+                break;
+            }
+        }
+        return super.charTyped(characterEvent);
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent keyEvent) {
+        if (keyEvent.key() == InputConstants.KEY_BACKSPACE) {
+            if (backspaceButton.isFocused()) backspaceButton.onPress(keyEvent);
+            else setFocused(backspaceButton);
+            return true;
+        }
+        if (renderableVList.keyPressed(keyEvent.key())) return true;
+        return super.keyPressed(keyEvent);
+    }
+
+    @Override
+    public boolean mouseDragged(MouseButtonEvent mouseButtonEvent, double d, double e) {
+        if ((d != 0 || e != 0) && mouseButtonEvent.button() == InputConstants.MOUSE_BUTTON_LEFT && LegacyRenderUtil.isMouseOver(mouseButtonEvent.x(), mouseButtonEvent.y(), panel.getX(), panel.getY(), panel.getWidth(), panel.getHeight())) {
+            xDiff = Math.max(0, Math.min(panel.getX() + Math.round((float) d), width - panel.getWidth())) - lastX;
+            yDiff = Math.max(0, Math.min(panel.getY() + Math.round((float) e), height - panel.getHeight())) - lastY;
+            repositionElements();
+        }
+        return super.mouseDragged(mouseButtonEvent, d, e);
+    }
+
+    @Override
+    public void renderDefaultBackground(GuiGraphics guiGraphics, int i, int j, float f) {
+        super.renderDefaultBackground(guiGraphics, i, j, f);
+        FactoryGuiGraphics.of(guiGraphics).setBlitColor(1f, 1f, 1f, 0.8f);
+        panel.render(guiGraphics, i, j, f);
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(panel.getX() + 4.5f, panel.getY() + 25.4f);
+        FactoryGuiGraphics.of(guiGraphics).blitSprite(LegacySprites.SQUARE_RECESSED_PANEL, 0, 0, 53, 123);
+        FactoryGuiGraphics.of(guiGraphics).blitSprite(LegacySprites.SQUARE_RECESSED_PANEL, panel.getWidth() - 62, 0, 53, 123);
+        guiGraphics.pose().translate(-4.5f, 0);
+        FactoryGuiGraphics.of(guiGraphics).blitSprite(LegacySprites.PANEL_RECESS, (panel.getWidth() - 267) / 2, -1, 267, 125);
+        guiGraphics.pose().popMatrix();
+        FactoryGuiGraphics.of(guiGraphics).clearBlitColor();
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(panel.getX() + (panel.getWidth() - font.width(KEYBOARD) * 1.5f) / 2, panel.getY() + 8);
+        guiGraphics.pose().scale(1.5f, 1.5f);
+        guiGraphics.drawString(font, KEYBOARD, 0, 0, CommonColor.INVENTORY_GRAY_TEXT.get(), false);
+        guiGraphics.pose().popMatrix();
+    }
+
+    @Override
+    public void bindingStateTick(BindingState state) {
+        children().forEach(r -> {
+            if (r instanceof ActionButton a && state.is(a.binding)) {
+                if (state.canClick()) {
+                    a.playDownSound(minecraft.getSoundManager());
+                    a.onPress(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
+                } else if (state.released) a.onRelease();
+            }
+        });
+        if (state.is(ControllerBinding.RIGHT_STICK) && state instanceof BindingState.Axis a && state.canClick(20)) {
+            if (state.canClick()) LegacySoundUtil.playSimpleUISound(LegacyRegistries.SCROLL.get(), 1.0f);
+            xDiff = Math.max(0, Math.min(panel.getX() + Math.round(a.x * 4), width - panel.getWidth())) - lastX;
+            yDiff = Math.max(0, Math.min(panel.getY() + Math.round(a.y * 4), height - panel.getHeight())) - lastY;
+            repositionElements();
+        }
+    }
+
+    @Override
+    public boolean onceClickBindings(BindingState b) {
+        return false;
+    }
+
+    public record CharButtonBuilder(int width, String chars, String shiftChars, ControllerBinding binding,
+                                    ResourceLocation iconSprite, SoundEvent downSound) {
+        public CharButton build(KeyboardScreen screen) {
+            return screen.new CharButton(width, chars, shiftChars, binding, iconSprite, downSound);
+        }
+    }
+
+    public static class KeyButton extends ActionButton {
+
+        public final int key;
+
+        private final Supplier<GuiEventListener> keyListener;
+
+        public KeyButton(int key, Supplier<GuiEventListener> keyListener, ControllerBinding binding, ResourceLocation iconSprite) {
+            this(key, 40, keyListener, binding, iconSprite);
+        }
+
+        public KeyButton(int key, int height, Supplier<GuiEventListener> keyListener, ControllerBinding binding, ResourceLocation iconSprite) {
+            super(50, height, CommonComponents.EMPTY, binding, iconSprite);
+            this.key = key;
+            this.keyListener = keyListener;
+        }
+
+        public boolean playSoundOnClick() {
+            return true;
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics guiGraphics, int i, int j, float f) {
+            FactoryGuiGraphics.of(guiGraphics).blitSprite(getSprite(), getX(), getY(), getWidth(), getHeight());
+            FactoryScreenUtil.enableBlend();
+            renderString(guiGraphics, Minecraft.getInstance().font, LegacyRenderUtil.getDefaultTextColor(!isHoveredOrFocused()));
+            FactoryScreenUtil.disableBlend();
+        }
+
+        public ResourceLocation getSprite() {
+            return isHoveredOrFocused() ? LegacySprites.BUTTON_SLOT_HIGHLIGHTED : LegacySprites.BUTTON_SLOT;
+        }
+
+        @Override
+        public void onPress(InputWithModifiers input) {
+            super.onPress(input);
+            GuiEventListener l = keyListener.get();
+            if (l != null) {
+                l.setFocused(true);
+                l.keyPressed(new KeyEvent(key, 0, 0));
+            }
+        }
+    }
+
+    public static abstract class ActionButton extends AbstractButton {
+        public final ControllerBinding binding;
+        private final ResourceLocation iconSprite;
+        public int pressTime = 0;
+
+        public ActionButton(int k, int l, Component component, ControllerBinding binding, ResourceLocation iconSprite) {
+            super(0, 0, k, l, component);
+            this.binding = binding;
+            this.iconSprite = iconSprite;
+        }
+
+        public void onRelease() {
+            pressTime = 0;
+        }
+
+        @Override
+        public void onPress(InputWithModifiers input) {
+            pressTime++;
+        }
+
+        @Override
+        public void playDownSound(SoundManager soundManager) {
+            if (playSoundOnClick()) LegacySoundUtil.playSimpleUISound(getDownSoundEvent(), 1.0f);
+        }
+
+        public boolean playSoundOnClick() {
+            return pressTime == 0;
+        }
+
+        public SoundEvent getDownSoundEvent() {
+            return LegacyRegistries.ACTION.get();
+        }
+
+        @Override
+        public void onRelease(MouseButtonEvent event) {
+            if (pressTime > 0) onRelease();
+        }
+
+        @Nullable
+        @Override
+        public ComponentPath nextFocusPath(FocusNavigationEvent focusNavigationEvent) {
+            return super.nextFocusPath(focusNavigationEvent);
+        }
+
+        @Override
+        public boolean keyReleased(KeyEvent keyEvent) {
+            if (this.active && this.visible && keyEvent.isSelection() && pressTime > 0) {
+                this.onRelease();
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        protected void renderScrollingString(GuiGraphics guiGraphics, Font font, int i, int j) {
+            int bindingOffset = 0;
+
+            if (binding != null && Legacy4JClient.controllerManager.connectedController != null)
+                bindingOffset = binding.getIcon().render(guiGraphics, getX() + i, getY() + (getHeight() - 9) / 2 + 1, true);
+
+            if (iconSprite == null)
+                renderScrollingString(guiGraphics, font, this.getMessage(), this.getX() + i + bindingOffset, this.getY(), this.getX() + this.getWidth() - i, this.getY() + this.getHeight(), j);
+            else {
+                TextureAtlasSprite sprite = FactoryGuiGraphics.getSprites().texturesByName.getOrDefault(iconSprite, null);
+                if (sprite == null) return;
+                try (SpriteContents contents = sprite.contents()) {
+                    FactoryScreenUtil.enableBlend();
+                    FactoryGuiGraphics.of(guiGraphics).blitSprite(iconSprite, getX() + (getWidth() - contents.width()) / 2 + Math.max(0, i + bindingOffset - (getWidth() - contents.width()) / 2), getY() + (getHeight() - contents.height()) / 2, contents.width(), contents.height());
+                    FactoryScreenUtil.disableBlend();
+                }
+            }
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {
+            defaultButtonNarrationText(narrationElementOutput);
+        }
+    }
+
+    public class CharButton extends ActionButton {
+        private final String chars;
+        private final String shiftChars;
+        private final SoundEvent downSound;
+        private int selectedChar = 0;
+
+
+        public CharButton(int width, String chars, String shiftChars, ControllerBinding binding, ResourceLocation iconSprite, SoundEvent downSound) {
+            super(width, 20, CommonComponents.EMPTY, binding, iconSprite);
+            this.chars = chars;
+            this.shiftChars = shiftChars;
+            this.downSound = downSound;
+        }
+
+        public static boolean hasShiftDown() {
+            return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_RSHIFT);
+        }
+
+        public boolean matches(CharacterEvent characterEvent) {
+            return chars.contains(characterEvent.codepointAsString()) || (shiftChars != null && shiftChars.contains(characterEvent.codepointAsString()));
+        }
+
+        public void renderTooltip(GuiGraphics guiGraphics, int i, int j, float f) {
+            if (pressTime >= 6 && getSelectedChars().length() > 1) {
+                int width = 18;
+                char[] chars = getSelectedChars().toCharArray();
+                for (int i1 = 0; i1 < chars.length; i1++) {
+                    String s = String.valueOf(chars[i1]);
+                    width += font.width(s) + (i1 == 0 ? 0 : 2);
+                }
+                int diffX = 0;
+                LegacyRenderUtil.renderPointerPanel(guiGraphics, getX() + (getWidth() - width) / 2, getY() - 17, width, 15);
+                for (char c : chars) {
+                    String s = String.valueOf(c);
+                    guiGraphics.drawString(font, s, getX() + (getWidth() - width) / 2 + diffX + 9, getY() - 14, c == getSelectedChar() ? 0xFFFFFF00 : 0xFFFFFFFF);
+                    diffX += font.width(s) + 2;
+                }
+                scrollRenderer.renderScroll(guiGraphics, ScreenDirection.LEFT, getX() + (getWidth() - width) / 2 + 2, getY() - 15);
+                scrollRenderer.renderScroll(guiGraphics, ScreenDirection.RIGHT, getX() + (getWidth() - width) / 2 + width - 9, getY() - 15);
+            }
+        }
+
+        @Override
+        public SoundEvent getDownSoundEvent() {
+            return downSound == null ? super.getDownSoundEvent() : downSound;
+        }
+
+        @Override
+        public boolean keyPressed(KeyEvent keyEvent) {
+            if ((keyEvent.isLeft() || keyEvent.isRight()) && pressTime >= 6) {
+                selectedChar = Stocker.cyclic(0, selectedChar + (keyEvent.isRight() ? 1 : -1), getSelectedChars().length());
+                return true;
+            }
+            return super.keyPressed(keyEvent);
+        }
+
+        @Override
+        public void setFocused(boolean bl) {
+            super.setFocused(bl);
+            if (!bl && pressTime > 0) onRelease();
+        }
+
+        @Override
+        public void onRelease() {
+            GuiEventListener l = listenerSupplier.get();
+            if (l != null) {
+                parent.setFocused(l);
+                l.charTyped(new CharacterEvent(getSelectedChar(), 0));
+            }
+            if (shiftChars != null && shift && !shiftLock) shift = false;
+            selectedChar = 0;
+            super.onRelease();
+        }
+
+        public char getSelectedChar() {
+            String characters = getSelectedChars();
+            return characters.charAt(characters.length() > selectedChar ? selectedChar : 0);
+        }
+
+        public String getSelectedChars() {
+            return shiftChars != null && (hasShiftDown() || shift) ? shiftChars : chars;
+        }
+
+        @Override
+        public Component getMessage() {
+            return Component.literal(String.valueOf(getSelectedChar()));
+        }
+    }
+}

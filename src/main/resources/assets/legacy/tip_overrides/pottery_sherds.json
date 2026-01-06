@@ -1,0 +1,6 @@
+{
+  "overrides": {
+    "item": "#decorated_pot_sherds",
+    "tip": {"translate": "item.minecraft.pottery_sherd.tip"}
+  }
+}

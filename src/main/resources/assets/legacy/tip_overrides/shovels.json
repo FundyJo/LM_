@@ -1,0 +1,6 @@
+{
+  "overrides": {
+    "item": "#shovels",
+    "tip": {"translate": "item.minecraft.shovel.tip"}
+  }
+}

@@ -1,0 +1,713 @@
+package wily.legacy.util.client;
+
+import com.google.common.collect.Ordering;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.LogoRenderer;
+import net.minecraft.client.gui.components.PlayerFaceRenderer;
+import net.minecraft.client.gui.components.toasts.Toast;
+import net.minecraft.client.gui.navigation.ScreenDirection;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
+import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffectUtil;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+//? if forge {
+/*import net.minecraftforge.client.extensions.common.IClientItemExtensions;
+import net.minecraftforge.client.ForgeHooksClient;
+import net.minecraftforge.client.event.RenderTooltipEvent;
+ *///?} else if neoforge {
+/*import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
+import net.neoforged.neoforge.client.ClientHooks;
+import net.neoforged.neoforge.client.event.RenderTooltipEvent;
+ *///?}
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
+import org.joml.Quaternionf;
+import org.joml.Vector2ic;
+import org.joml.Vector3f;
+import org.lwjgl.glfw.GLFW;
+import oshi.SystemInfo;
+import wily.factoryapi.FactoryAPIClient;
+import wily.factoryapi.base.client.FactoryGuiGraphics;
+import wily.factoryapi.base.client.GuiAccessor;
+import wily.factoryapi.base.client.MinecraftAccessor;
+import wily.factoryapi.base.client.UIAccessor;
+import wily.factoryapi.util.ColorUtil;
+import wily.factoryapi.util.FactoryGuiElement;
+import wily.factoryapi.util.FactoryScreenUtil;
+import wily.legacy.Legacy4J;
+import wily.legacy.Legacy4JClient;
+import wily.legacy.client.*;
+import wily.legacy.client.screen.ConfirmationScreen;
+import wily.legacy.client.screen.LegacyIconHolder;
+import wily.legacy.client.screen.MultilineTooltip;
+import wily.legacy.network.TopMessage;
+import wily.legacy.util.LegacyItemUtil;
+import wily.legacy.util.LegacySprites;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static wily.legacy.client.screen.ControlTooltip.MORE;
+
+public class LegacyRenderUtil {
+    public static final boolean isNvidia;
+    public static final LegacyIconHolder iconHolderRenderer = new LegacyIconHolder();
+    public static final ResourceLocation MINECRAFT = Legacy4J.createModLocation("textures/gui/title/minecraft.png");
+    public static final ResourceLocation PANORAMA_DAY = Legacy4J.createModLocation("textures/gui/title/panorama_day.png");
+    public static final ResourceLocation PANORAMA_NIGHT = Legacy4J.createModLocation("textures/gui/title/panorama_night.png");
+    public static final ResourceLocation MENU_BACKGROUND = Legacy4J.createModLocation("textures/gui/menu_background.png");
+    public static final ResourceLocation LOADING_BACKGROUND = Legacy4J.createModLocation("textures/gui/loading_background.png");
+    protected static final LogoRenderer logoRenderer = new LogoRenderer(false);
+
+    private static final Minecraft mc = Minecraft.getInstance();
+
+    static {
+        isNvidia = new SystemInfo().getHardware().getGraphicsCards().stream().anyMatch(s -> s.getVendor().contains("nvidia") || s.getVendor().contains("NVIDIA"));
+    }
+
+    public static void renderPointerPanel(GuiGraphics graphics, int x, int y, int width, int height) {
+        blitTranslucentOverlaySprite(graphics, LegacySprites.POINTER_PANEL, x, y, width, height);
+    }
+
+    public static void blitTranslucentOverlaySprite(GuiGraphics graphics, ResourceLocation sprite, int x, int y, int width, int height) {
+        blitTranslucentSprite(graphics, sprite, x, y, width, height);
+    }
+
+    public static void blitTranslucentSprite(GuiGraphics graphics, ResourceLocation sprite, int x, int y, int width, int height) {
+        FactoryGuiGraphics.of(graphics).blitSprite(sprite, x, y, width, height);
+    }
+
+    public static void renderPanelTranslucentRecess(GuiGraphics graphics, int x, int y, int width, int height) {
+        blitTranslucentSprite(graphics, LegacySprites.PANEL_TRANSLUCENT_RECESS, x, y, width, height);
+    }
+
+    public static void drawAutoSavingIcon(GuiGraphics graphics, int x, int y) {
+        FactoryGuiGraphics.of(graphics).blitSprite(LegacySprites.SAVE_CHEST, x, y, 24, 24);
+        graphics.pose().pushMatrix();
+        float heightAnim = (Util.getMillis() / 50f) % 11;
+        graphics.pose().translate(x + 5.5f, y - 8 - (heightAnim > 5 ? 10 - heightAnim : heightAnim));
+        FactoryGuiGraphics.of(graphics).blitSprite(LegacySprites.SAVE_ARROW, 0, 0, 13, 16);
+        graphics.pose().popMatrix();
+    }
+
+    public static void renderDefaultBackground(UIAccessor accessor, GuiGraphics guiGraphics) {
+        renderDefaultBackground(accessor, guiGraphics, true);
+    }
+
+    public static void renderDefaultBackground(UIAccessor accessor, GuiGraphics guiGraphics, boolean title) {
+        renderDefaultBackground(accessor, guiGraphics, false, title, true);
+    }
+
+    public static boolean isVisualNight() {
+        return mc.level != null && mc.level./*? if <1.21.5 {*//*isNight*//*?} else {*/isDarkOutside/*?}*/();
+    }
+
+    public static void renderDefaultBackground(UIAccessor accessor, GuiGraphics guiGraphics, boolean forcePanorama, boolean title, boolean username) {
+        if (mc.level == null || accessor.getBoolean("forcePanorama", forcePanorama)) {
+            renderPanorama(guiGraphics);
+        } else accessor.getScreen().renderTransparentBackground(guiGraphics);
+        if (accessor.getBoolean("hasTitle", title)) renderLogo(guiGraphics);
+        if (accessor.getBoolean("hasUsername", username)) renderUsername(guiGraphics);
+    }
+
+    public static void renderLogo(GuiGraphics guiGraphics) {
+        logoRenderer.renderLogo(guiGraphics, guiGraphics.guiWidth(), 1.0F);
+    }
+
+    public static float getLogoScale() {
+        return LegacyOptions.getUIMode().isSD() ? 321 / 571f : 1.0f;
+    }
+
+    public static boolean hasLegacyLogo() {
+        return ControlType.getActiveType().minecraftLogo().flatMap(mc.getResourceManager()::getResource).isPresent() || mc.getResourceManager().getResource(LegacyRenderUtil.MINECRAFT).isPresent();
+    }
+
+    public static void renderLegacyLogo(GuiGraphics guiGraphics, int y) {
+        FactoryScreenUtil.enableBlend();
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate((guiGraphics.guiWidth() - 285.5f * getLogoScale()) / 2, y);
+        guiGraphics.pose().scale(0.5f * getLogoScale(), 0.5f * getLogoScale());
+        FactoryGuiGraphics.of(guiGraphics).blit(mc.getResourceManager().getResource(MINECRAFT).isPresent() ? MINECRAFT : ControlType.getActiveType().minecraftLogo().get(), 0, 0, 0, 0, 571, 138, 571, 138);
+        guiGraphics.pose().popMatrix();
+        FactoryScreenUtil.disableBlend();
+    }
+
+    public static void renderTransparentBackground(GuiGraphics graphics) {
+        FactoryScreenUtil.enableBlend();
+        FactoryGuiGraphics.of(graphics).blit(LegacyRenderUtil.MENU_BACKGROUND, 0, 0, 0, 0, graphics.guiWidth(), graphics.guiHeight(), graphics.guiWidth(), graphics.guiHeight());
+        FactoryScreenUtil.disableBlend();
+    }
+
+    public static void renderUsername(GuiGraphics graphics) {
+        if (mc.level != null) return;
+        String username = MCAccount.isOfflineUser() ? I18n.get("legacy.menu.offline_user", mc.getUser().getName()) : mc.getUser().getName();
+        graphics.drawString(mc.font, username, graphics.guiWidth() - 33 - mc.font.width(username), graphics.guiHeight() - 27, 0xFFFFFFFF);
+    }
+
+    public static void renderPanorama(GuiGraphics guiGraphics) {
+        mc.gameRenderer.getPanorama().render(guiGraphics, guiGraphics.guiWidth(), guiGraphics.guiHeight(), true);
+    }
+
+    public static void renderLegacyPanorama(GuiGraphics guiGraphics) {
+        renderLegacyPanorama(guiGraphics, isVisualNight());
+    }
+
+    public static void renderLegacyPanorama(GuiGraphics guiGraphics, boolean isNight) {
+        FactoryGuiGraphics.of(guiGraphics).blit(isNight ? PANORAMA_NIGHT : PANORAMA_DAY, 0, 0, mc.options.panoramaSpeed().get().floatValue() * Util.getMillis() * guiGraphics.guiHeight() / 360 / 66.32f, 1, guiGraphics.guiWidth(), guiGraphics.guiHeight() + 2, guiGraphics.guiHeight() * 820 / 144, guiGraphics.guiHeight() + 2);
+    }
+
+    public static void drawOutlinedString(GuiGraphics graphics, Font font, Component component, int x, int y, int color, int outlineColor, float outline) {
+        drawOutlinedString(graphics, font, component.getVisualOrderText(), x, y, color, outlineColor, outline);
+    }
+
+    public static void drawOutlinedString(GuiGraphics graphics, Font font, FormattedCharSequence formattedCharSequence, int x, int y, int color, int outlineColor, float outline) {
+        drawStringOutline(graphics, font, formattedCharSequence, x, y, outlineColor, outline);
+        graphics.drawString(font, formattedCharSequence, x, y, color, false);
+    }
+
+    public static void drawStringOutline(GuiGraphics graphics, Font font, FormattedCharSequence formattedCharSequence, int x, int y, int outlineColor, float outline) {
+        float[] translations = new float[]{0, outline, -outline};
+        for (float t : translations) {
+            for (float t1 : translations) {
+                if (t != 0 || t1 != 0) {
+                    graphics.pose().pushMatrix();
+                    graphics.pose().translate(t, t1);
+                    graphics.drawString(font, formattedCharSequence, x, y, outlineColor, false);
+                    graphics.pose().popMatrix();
+                }
+            }
+        }
+    }
+
+    public static boolean isMouseOver(double mouseX, double mouseY, double x, double y, int width, int height) {
+        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+    }
+
+    public static void applyHUDScale(GuiGraphics graphics) {
+        graphics.pose().scale(3f / getHUDScale(), 3f / getHUDScale());
+    }
+
+    public static void prepareHUDRender(GuiGraphics graphics) {
+        graphics.pose().pushMatrix();
+        FactoryGuiGraphics.of(graphics).setBlitColor(1.0f, 1.0f, 1.0f, getHUDOpacity());
+        graphics.pose().translate(0, getHUDDistance());
+        FactoryScreenUtil.enableBlend();
+    }
+
+    public static void finalizeHUDRender(GuiGraphics graphics) {
+        graphics.pose().popMatrix();
+        FactoryGuiGraphics.of(graphics).setBlitColor(1.0f, 1.0f, 1.0f, 1.0f);
+        FactoryScreenUtil.disableBlend();
+    }
+
+    public static float getHUDScale() {
+        return switch (LegacyOptions.hudSize.get()) {
+            case 2 -> LegacyOptions.getUIMode().isFHD() ? 1.474f : LegacyOptions.getUIMode().isSD() ? 1.0f : 1.5f;
+            case 3 -> LegacyOptions.getUIMode().isSD() ? 1.324f : 2.0f;
+            default -> LegacyOptions.getUIMode().isSD() ? 0.8f : 1;
+        };
+    }
+
+    public static float getHUDSize() {
+        return 6 + LegacyRenderUtil.getHUDScale() * (35 + (mc.gameMode.canHurtPlayer() ? Math.max(2, Mth.ceil((Math.max(mc.player.getAttributeValue(Attributes.MAX_HEALTH), Math.max(mc.gui.displayHealth, mc.player.getHealth())) + mc.player.getAbsorptionAmount()) / 20f) + (mc.player.getArmorValue() > 0 ? 1 : 0)) * 10 : 0));
+    }
+
+    public static float getHUDDistance() {
+        return -LegacyOptions.hudDistance.get().floatValue() * (22.4f + (LegacyOptions.inGameTooltips.get() ? 17.6f : 0));
+    }
+
+    public static float getHUDOpacity() {
+        float f = (Util.getMillis() - LegacyGuiElements.lastHotbarSelectionChange) / 1200f;
+        return getInterfaceOpacity() <= 0.8f ? Math.min(0.8f, getInterfaceOpacity() + (1 - getInterfaceOpacity()) * (f >= 3f ? Math.max(4 - f, 0) : 1)) : getInterfaceOpacity();
+    }
+
+    public static boolean hasTooltipBoxes() {
+        return LegacyOptions.tooltipBoxes.get();
+    }
+
+    public static boolean hasTooltipBoxes(UIAccessor accessor) {
+        return hasTooltipBoxes() && accessor.getBoolean("hasTooltipBox", true);
+    }
+
+    public static float getInterfaceOpacity() {
+        return LegacyOptions.hudOpacity.get().floatValue();
+    }
+
+    public static int getDefaultTextColor(boolean forceWhite) {
+        return !forceWhite ? CommonColor.HIGHLIGHTED_WIDGET_TEXT.get() : CommonColor.WIDGET_TEXT.get();
+    }
+
+    public static int getDefaultTextColor() {
+        return getDefaultTextColor(false);
+    }
+
+    public static boolean hasProgrammerArt() {
+        return mc.getResourcePackRepository().getSelectedPacks().stream().anyMatch(p -> p.getId().equals("programmer_art"));
+    }
+
+    public static void drawGenericLoading(GuiGraphics graphics, int x, int y) {
+        drawGenericLoading(graphics, x, y, 21, 6);
+    }
+
+    public static void drawGenericLoading(GuiGraphics graphics, int x, int y, int blockSize, int blockDistance) {
+        int blockD = (blockSize + blockDistance);
+        for (int i = 0; i < 8; i++) {
+            int v = (i + 1) * 100;
+            int n = (i + 3) * 100;
+            float l = (Util.getMillis() / 4f) % 1000;
+            float alpha = l >= v - 100 ? (l <= v ? l / v : (n - l) / 200f) : 0;
+            if (alpha > 0) {
+                FactoryGuiGraphics.of(graphics).setBlitColor(1.0f, 1.0f, 1.0f, alpha);
+                FactoryGuiGraphics.of(graphics).blitSprite(LegacySprites.LOADING_BLOCK, x + (i <= 2 ? i : i >= 4 ? i == 7 ? 0 : 6 - i : 2) * blockD, y + (i <= 2 ? 0 : i == 3 || i == 7 ? 1 : 2) * blockD, blockSize, blockSize);
+            }
+        }
+        FactoryGuiGraphics.of(graphics).clearBlitColor();
+    }
+
+    public static void renderScrollingString(GuiGraphics guiGraphics, Font font, Component component, int j, int k, int l, int m, int n, boolean shadow) {
+        renderScrollingString(guiGraphics, font, component.getVisualOrderText(), j, k, l, m, n, shadow);
+    }
+
+    public static void renderScrollingString(GuiGraphics guiGraphics, Font font, FormattedCharSequence charSequence, int j, int k, int l, int m, int n, boolean shadow) {
+        renderScrollingString(guiGraphics, font, charSequence, j, k, l, m, n, shadow, font.width(charSequence));
+    }
+
+    public static void renderScrollingString(GuiGraphics guiGraphics, Font font, FormattedCharSequence charSequence, int j, int k, int l, int m, int n, boolean shadow, int stringWidth) {
+        int p = (k + m - font.lineHeight) / 2 + 1;
+        int q = l - j;
+        if (stringWidth > q) {
+            int r = stringWidth - q;
+            double d = (double) Util.getMillis() / 1000.0;
+            double e = Math.max((double) r * 0.5, 3.0);
+            double f = Math.sin(1.5707963267948966 * Math.cos(Math.PI * 2 * d / e)) / 2.0 + 0.5;
+            double g = Mth.lerp(f, 0.0, r);
+            FactoryGuiGraphics.of(guiGraphics).enableScissor(j, k, l, m);
+            guiGraphics.drawString(font, charSequence, j - (int) g, p, n, shadow && CommonValue.WIDGET_TEXT_SHADOW.get());
+            guiGraphics.disableScissor();
+        } else {
+            guiGraphics.drawString(font, charSequence, j, p, n, shadow && CommonValue.WIDGET_TEXT_SHADOW.get());
+        }
+    }
+
+    public static boolean isHovering(Slot slot, int leftPos, int topPos, double d, double e) {
+        LegacyIconHolder holder = LegacyRenderUtil.iconHolderRenderer.slotBounds(slot);
+        int width = holder.getWidth();
+        int height = holder.getHeight();
+        double xCorner = holder.getXCorner() + holder.offset.x;
+        double yCorner = holder.getYCorner() + holder.offset.y;
+        return (d -= leftPos) >= xCorner && d < (xCorner + width) && (e -= topPos) >= yCorner && e < (yCorner + height);
+    }
+
+    public static void renderEntityInInventoryFollowsMouse(GuiGraphics guiGraphics, int i, int j, int k, int l, int m, float f, float g, float h, LivingEntity livingEntity) {
+        guiGraphics.enableScissor(i, j, k, l);
+        float n = (i + k) / 2.0F;
+        float o = (j + l) / 2.0F;
+        float p = (float) Math.atan((n - g) / 40.0F);
+        float q = (float) Math.atan((o - h) / 40.0F);
+        Quaternionf quaternionf = new Quaternionf().rotateZ((float) Math.PI);
+        Quaternionf quaternionf2 = new Quaternionf().rotateX(q * 20.0F * (float) (Math.PI / 180.0));
+        quaternionf.mul(quaternionf2);
+        float r = livingEntity.yBodyRot;
+        float s = livingEntity.getYRot();
+        float t = livingEntity.getXRot();
+        float u = livingEntity.yHeadRotO;
+        float v = livingEntity.yHeadRot;
+        livingEntity.yBodyRot = 180.0F + p * 20.0F;
+        livingEntity.setYRot(180.0F + p * 40.0F);
+        livingEntity.setXRot(-q * 20.0F);
+        livingEntity.yHeadRot = livingEntity.getYRot();
+        livingEntity.yHeadRotO = livingEntity.getYRot();
+        float w = livingEntity.getScale();
+        Vector3f vector3f = new Vector3f(0.0F, livingEntity.getBbHeight() / 2.0F + f * w, 0.0F);
+        float x = m / w;
+        InventoryScreen.renderEntityInInventory(guiGraphics, i - guiGraphics.guiWidth(), j - guiGraphics.guiHeight(), k + guiGraphics.guiWidth(), l + guiGraphics.guiHeight(), x, vector3f, quaternionf, quaternionf2, livingEntity);
+        livingEntity.yBodyRot = r;
+        livingEntity.setYRot(s);
+        livingEntity.setXRot(t);
+        livingEntity.yHeadRotO = u;
+        livingEntity.yHeadRot = v;
+        guiGraphics.disableScissor();
+    }
+
+    public static void renderEntity(GuiGraphics guiGraphics, int x, int y, int x0, int y0, int size, Vector3f vector3f, Quaternionf quaternionf, @Nullable Quaternionf quaternionf2, Entity entity) {
+        renderEntity(guiGraphics, x, y, x0, y0, size, vector3f, quaternionf, quaternionf2, entity, false);
+    }
+
+    public static void renderEntity(GuiGraphics guiGraphics, int x, int y, int x0, int y0, int size, Vector3f vector3f, Quaternionf quaternionf, @Nullable Quaternionf quaternionf2, Entity entity, boolean forceSize) {
+        float h = forceSize ? size / Math.max(1, Math.max(entity.getBbWidth(), entity.getBbHeight())) : size;
+
+        if (entity instanceof LivingEntity living) h /= living.getScale();
+
+        EntityRenderDispatcher entityRenderDispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
+        EntityRenderer<? super Entity, ?> entityRenderer = entityRenderDispatcher.getRenderer(entity);
+        EntityRenderState entityRenderState = entityRenderer.createRenderState(entity, 1.0F);
+        entityRenderState.lightCoords = 15728880;
+        entityRenderState.hitboxesRenderState = null;
+        entityRenderState.shadowPieces.clear();
+        entityRenderState.outlineColor = 0;
+        guiGraphics.submitEntityRenderState(entityRenderState, h, vector3f, quaternionf, quaternionf2, x, y, x0, y0);
+    }
+
+    public static void renderLocalPlayerHead(GuiGraphics guiGraphics, int x, int y, int size) {
+        if (mc.player == null) return;
+        PlayerFaceRenderer.draw(guiGraphics, mc.player.getSkin(), x, y, size);
+    }
+
+    public static float getAutoGuiScale() {
+        return getStandardHeight() / (LegacyOptions.getUIMode().isSD() ? 240.0f : 360.0f);
+    }
+
+    public static int getStandardHeight() {
+        return Math.round(mc.getWindow().getHeight() / 180f) * 180;
+    }
+
+    public static boolean is720p() {
+        return getStandardHeight() <= 720;
+    }
+
+    public static float getTooltipScale() {
+        return LegacyOptions.legacyItemTooltipScaling.get() && LegacyOptions.getUIMode().isFHD() ? 2 / 3.0f : 1.0f;
+    }
+
+    public static float getChatSafeZone() {
+        return 29 * LegacyOptions.hudDistance.get().floatValue();
+    }
+
+    public static int getSelectedItemTooltipLines() {
+        return LegacyOptions.selectedItemTooltipLines.get() == 0 ? 0 : LegacyOptions.selectedItemTooltipLines.get() + (LegacyOptions.itemTooltipEllipsis.get() ? 1 : 0);
+    }
+
+    public static boolean canDisplayHUD() {
+        int hudDelay = LegacyOptions.hudDelay.get();
+        return mc.screen == null && (hudDelay == 0 || Util.getMillis() - LegacyGuiElements.lastGui > hudDelay);
+    }
+
+    public static void renderContainerEffects(GuiGraphics guiGraphics, int leftPos, int topPos, int imageWidth, int imageHeight, int mouseX, int mouseY) {
+        int x = leftPos + imageWidth + 3;
+        int l = guiGraphics.guiWidth() - x;
+        Collection<MobEffectInstance> collection = mc.player.getActiveEffects();
+        if (collection.isEmpty() || l < 32) {
+            return;
+        }
+        boolean bl = l >= 129;
+        int m = 31;
+        if (imageHeight < collection.size() * 28) {
+            m = imageHeight / collection.size();
+        }
+        List<MobEffectInstance> iterable = Ordering.natural().sortedCopy(collection);
+        int y = topPos + imageHeight - 28;
+        for (MobEffectInstance mobEffectInstance : iterable) {
+            LegacyRenderUtil.renderPointerPanel(guiGraphics, x, y, bl ? 129 : 28, 28);
+            if (bl) {
+                guiGraphics.pose().pushMatrix();
+                guiGraphics.pose().translate(x + 25, y + 7);
+                LegacyFontUtil.applySmallerFont(LegacyFontUtil.MOJANGLES_11_FONT, b -> {
+                    Component effect = getEffectName(mobEffectInstance);
+                    if (!b) guiGraphics.pose().scale(2 / 3f, 2 / 3f);
+                    guiGraphics.drawString(mc.font, effect, 0, 0, 0xFFFFFFFF);
+                    guiGraphics.pose().translate(0, 10 * (b ? 1 : 1.5f));
+                    guiGraphics.drawString(mc.font, MobEffectUtil.formatDuration(mobEffectInstance, 1.0f, mc.level.tickRateManager().tickrate()), 0, 0, 0xFF7F7F7F);
+                });
+                guiGraphics.pose().popMatrix();
+            }
+            FactoryGuiGraphics.of(guiGraphics).blitSprite(Gui.getMobEffectSprite(mobEffectInstance.getEffect()), x + (bl ? 3 : 5), y + 5, 18, 18);
+            y -= m;
+        }
+        if (!bl && mouseX >= x && mouseX <= x + 28) {
+            int n = topPos + imageHeight - 28;
+            MobEffectInstance mobEffectInstance = null;
+            for (MobEffectInstance mobEffectInstance2 : iterable) {
+                if (mouseY >= n && mouseY <= n + m) {
+                    mobEffectInstance = mobEffectInstance2;
+                }
+                n -= m;
+            }
+            if (mobEffectInstance != null) {
+                List<Component> list = List.of(getEffectName(mobEffectInstance), MobEffectUtil.formatDuration(mobEffectInstance, 1.0f, mc.level.tickRateManager().tickrate()));
+                guiGraphics.setTooltipForNextFrame(mc.font, list, Optional.empty(), mouseX, mouseY);
+            }
+        }
+    }
+
+    public static Component getEffectName(MobEffectInstance mobEffectInstance) {
+        MutableComponent mutableComponent = mobEffectInstance.getEffect()/*? if >=1.20.5 {*/.value()/*?}*/.getDisplayName().copy();
+        if (mobEffectInstance.getAmplifier() >= 1 && mobEffectInstance.getAmplifier() <= 9) {
+            mutableComponent.append(CommonComponents.SPACE).append(Component.translatable("enchantment.level." + (mobEffectInstance.getAmplifier() + 1)));
+        }
+
+        return mutableComponent;
+    }
+
+    public static List<Component> getTooltip(ItemStack stack) {
+        return stack.getTooltipLines(/*? if >1.20.5 {*/Item.TooltipContext.of(mc.level),/*?}*/ mc.player, LegacyOptions.advancedHeldItemTooltip.get() ? TooltipFlag.ADVANCED : TooltipFlag.NORMAL);
+    }
+
+    public static List<FormattedCharSequence> getTooltip(ItemStack stack, int width) {
+        return new MultilineTooltip(getTooltip(stack), width).toCharSequence(mc);
+    }
+
+    public static void renderHUDTooltip(GuiGraphics guiGraphics, int shift) {
+        if (!FactoryGuiElement.SELECTED_ITEM_NAME.isVisible(FactoryScreenUtil.getGuiAccessor()) || LegacyRenderUtil.getSelectedItemTooltipLines() == 0)
+            return;
+        LegacyRenderUtil.prepareHUDRender(guiGraphics);
+        guiGraphics.pose().translate(0, guiGraphics.guiHeight() - Math.max(shift, LegacyRenderUtil.getHUDSize()));
+        FactoryAPIClient.getProfiler().push("selectedItemName");
+        LegacyFontUtil.applySDFont(sd -> {
+        if (GuiAccessor.getInstance().getToolHighlightTimer() > 0 && !GuiAccessor.getInstance().getLastToolHighlight().isEmpty()) {
+            Font font = /*? if forge || neoforge {*//*Objects.requireNonNullElse(IClientItemExtensions.of(GuiAccessor.getInstance().getLastToolHighlight()).getFont(GuiAccessor.getInstance().getLastToolHighlight(), IClientItemExtensions.FontContext.SELECTED_ITEM_NAME), mc.font)*//*?} else {*/  mc.font/*?}*/;
+            List<Component> tooltip = LegacyRenderUtil.getTooltip(GuiAccessor.getInstance().getLastToolHighlight());
+            tooltip.removeIf(c -> c.getString().isBlank());
+            Object2IntMap<Component> tooltipLines = tooltip.stream().limit(LegacyRenderUtil.getSelectedItemTooltipLines()).map(c -> tooltip.indexOf(c) == LegacyRenderUtil.getSelectedItemTooltipLines() - 1 && LegacyOptions.itemTooltipEllipsis.get() ? MORE : c).collect(Collectors.toMap(Function.identity(), font::width, (a, b) -> b, Object2IntLinkedOpenHashMap::new));
+            int l = Math.min((int) ((float) GuiAccessor.getInstance().getToolHighlightTimer() * 256.0f / 10.0f), 255);
+            if (l > 0) {
+                int color = 0xFFFFFFFF + (Math.round(l * getHUDOpacity()) << 24);
+                int height = LegacyOptions.selectedItemTooltipSpacing.get() * (tooltipLines.size() - 1);
+                guiGraphics.pose().translate(0, -height);
+                if (!mc.options.backgroundForChatOnly().get()) {
+                    int backgroundWidth = tooltipLines.values().intStream().max().orElse(0) + 4;
+                    int backgroundX = (guiGraphics.guiWidth() - backgroundWidth) / 2;
+                    FactoryGuiGraphics.of(guiGraphics).setBlitColor(1.0f, 1.0f, 1.0f, l / 255f);
+                    LegacyRenderUtil.renderPointerPanel(guiGraphics, backgroundX, -4, backgroundWidth, height + 15);
+                    FactoryGuiGraphics.of(guiGraphics).clearBlitColor();
+                }
+                tooltipLines.forEach((mutableComponent, width) -> {
+                    int x = (guiGraphics.guiWidth() - width) / 2;
+                    guiGraphics.drawString(font, mutableComponent, x, 0, color);
+                    guiGraphics.pose().translate(0, LegacyOptions.selectedItemTooltipSpacing.get());
+                });
+            }
+        }});
+        FactoryAPIClient.getProfiler().pop();
+        LegacyRenderUtil.finalizeHUDRender(guiGraphics);
+    }
+
+    public static void renderGuiEffects(GuiGraphics guiGraphics) {
+        Collection<MobEffectInstance> collection = mc.player.getActiveEffects();
+        if (!FactoryGuiElement.EFFECTS.isVisible(FactoryScreenUtil.getGuiAccessor()) || collection.isEmpty()) {
+            return;
+        }
+        int i = 0;
+        int j = 0;
+        float backAlpha = LegacyRenderUtil.getHUDOpacity();
+
+        for (MobEffectInstance mobEffectInstance : Ordering.natural().reverse().sortedCopy(collection)) {
+            Holder<MobEffect> mobEffect = /*? if <1.20.5 {*//*BuiltInRegistries.MOB_EFFECT.wrapAsHolder(mobEffectInstance.getEffect())*//*?} else {*/mobEffectInstance.getEffect()/*?}*/;
+            if (!mobEffectInstance.showIcon()) continue;
+            int k = guiGraphics.guiWidth() - 55;
+            int l = 18;
+            if (mc.isDemo()) {
+                l += 15;
+            }
+            if (mobEffect.value().isBeneficial()) {
+                k -= 24 * ++i;
+            } else {
+                k -= 24 * ++j;
+                l += 24;
+            }
+            float f = 1.0f;
+            FactoryGuiGraphics.of(guiGraphics).setBlitColor(1.0f, 1.0f, 1.0f, backAlpha);
+            LegacyRenderUtil.renderPointerPanel(guiGraphics, k, l, 24, 24);
+            if (mobEffectInstance.endsWithin(200)) {
+                int m = mobEffectInstance.getDuration();
+                f = Mth.clamp((float) m / 10.0f / 5.0f * 0.5f, 0.0f, 0.5f) + Mth.cos((float) m * (float) Math.PI / 5.0f) * Mth.clamp((10 - m / 20) / 10.0f * 0.25f, 0.0f, 0.25f);
+            }
+            FactoryScreenUtil.enableBlend();
+
+            FactoryGuiGraphics.of(guiGraphics).setBlitColor(1.0f, 1.0f, 1.0f, f * backAlpha);
+            FactoryGuiGraphics.of(guiGraphics).blitSprite(Gui.getMobEffectSprite(mobEffect), k + 3, l + 3, 18, 18);
+            FactoryScreenUtil.disableBlend();
+        }
+        FactoryGuiGraphics.of(guiGraphics).setBlitColor(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    public static void renderTooltipInternal(GuiGraphics graphics, Font font, List<ClientTooltipComponent> list, int i, int j, ClientTooltipPositioner clientTooltipPositioner/*? if forge || neoforge {*//*, ItemStack tooltipStack*//*?}*/) {
+        if (list.isEmpty()) return;
+        //? if forge {
+        /*RenderTooltipEvent.Pre preEvent = ForgeHooksClient.onRenderTooltipPre(tooltipStack, graphics, i, j, graphics.guiWidth(), graphics.guiHeight(), list, font, clientTooltipPositioner, null);
+        if (preEvent == null) return;
+        *///?} else if neoforge {
+        /*RenderTooltipEvent.Pre preEvent = ClientHooks.onRenderTooltipPre(tooltipStack, graphics, i, j, graphics.guiWidth(), graphics.guiHeight(), list, font, clientTooltipPositioner);
+        if (preEvent.isCanceled()) return;
+        *///?}
+        //? if forge || neoforge {
+        /*font = preEvent.getFont();
+        i = preEvent.getX();
+        j = preEvent.getY();
+        *///?}
+        int k = 0;
+        int l = 0;
+
+        for (ClientTooltipComponent tooltipComponent : list) {
+            k = Math.max(tooltipComponent.getWidth(font), k);
+            l += tooltipComponent.getHeight(/*? if >=1.21.2 {*/font/*?}*/);
+        }
+
+        Vector2ic vector2ic = clientTooltipPositioner.positionTooltip(graphics.guiWidth(), graphics.guiHeight(), i, j, (int) (k * LegacyRenderUtil.getTooltipScale()), (int) (l * LegacyRenderUtil.getTooltipScale()));
+        int p = vector2ic.x();
+        int q = vector2ic.y();
+        graphics.pose().pushMatrix();
+        if (p == (int) Legacy4JClient.controllerManager.getPointerX() && q == (int) Legacy4JClient.controllerManager.getPointerY())
+            graphics.pose().translate((float) (Legacy4JClient.controllerManager.getPointerX() - i), (float) (Legacy4JClient.controllerManager.getPointerY() - j));
+        int scaledWidth = Math.round(LegacyRenderUtil.getTooltipScale() * k);
+        int scaledHeight = Math.round(LegacyRenderUtil.getTooltipScale() * l);
+        switch (LegacyOptions.getUIMode()) {
+            case FHD -> LegacyRenderUtil.renderPointerPanel(graphics, p - 3, q - 6, scaledWidth + 7, scaledHeight + 9);
+            case SD -> LegacyRenderUtil.renderPointerPanel(graphics, p - 3, q - 4, scaledWidth + 7, scaledHeight + 6);
+            default -> LegacyRenderUtil.renderPointerPanel(graphics, p - 5, q - 9, scaledWidth + 11, scaledHeight + 13);
+        }
+        graphics.pose().translate(p, q);
+        FactoryScreenUtil.disableDepthTest();
+        graphics.pose().scale(LegacyRenderUtil.getTooltipScale(), LegacyRenderUtil.getTooltipScale());
+        int s = 0;
+
+        int t;
+        ClientTooltipComponent tooltipComponent;
+        for (t = 0; t < list.size(); ++t) {
+            tooltipComponent = list.get(t);
+            tooltipComponent.renderText(graphics, font, 0, s);
+            s += tooltipComponent.getHeight(/*? if >=1.21.2 {*/font/*?}*/);
+        }
+
+        s = 0;
+
+        for (t = 0; t < list.size(); ++t) {
+            tooltipComponent = list.get(t);
+            tooltipComponent.renderImage(font, 0, s,/*? if >=1.21.2 {*/k, l,/*?}*/ graphics);
+            s += tooltipComponent.getHeight(/*? if >=1.21.2 {*/font/*?}*/);
+        }
+        FactoryScreenUtil.enableDepthTest();
+        graphics.pose().popMatrix();
+    }
+
+    public static void renderTopText(GuiGraphics guiGraphics, TopMessage topMessage, int y, float scale, int ticks) {
+        if (topMessage != null && ticks < topMessage.ticksOnScreen()) {
+            FactoryScreenUtil.disableDepthTest();
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().translate(guiGraphics.guiWidth() / 2f, y);
+            guiGraphics.pose().scale(scale, scale);
+            if (topMessage.pulse()) {
+                float pulse = Util.getMillis() / 400f % 1;
+                pulse = 1 + (pulse > 0.5f ? 1 - pulse : pulse) / 10;
+                guiGraphics.pose().scale(pulse, pulse);
+            }
+            guiGraphics.pose().translate(-mc.font.width(topMessage.message()) / 2f, 0);
+            float maxFade = Math.min(topMessage.ticksOnScreen(), 20);
+            float fade = topMessage.fade() ? Math.min(1, (topMessage.ticksOnScreen() - (ticks + FactoryAPIClient.getPartialTick())) / maxFade) : 1;
+            guiGraphics.drawString(mc.font, topMessage.message(), 0, 0, fade < 1 ? ColorUtil.withAlpha(topMessage.baseColor(), fade) : topMessage.baseColor(), topMessage.shadow());
+            guiGraphics.pose().popMatrix();
+            FactoryScreenUtil.enableDepthTest();
+        }
+    }
+
+    public static float getFlyingViewRollingRotation(float original) {
+        if (LegacyOptions.flyingViewRolling.get() && mc.player != null && mc.player.isFallFlying()) {
+            float f = FactoryAPIClient.getGamePartialTick(false);
+            Vec3 vec3 = mc.player.getViewVector(f);
+            Vec3 vec32 = mc.player.avatarState().deltaMovementOnPreviousTick().lerp(mc.player.getDeltaMovement(), f);
+            double d = vec32.horizontalDistanceSqr();
+            double e = vec3.horizontalDistanceSqr();
+            if (d > 0.0 && e > 0.0) {
+                int dir = (int) -Math.signum(vec32.x * vec3.z - vec32.z * vec3.x);
+                float z = (float) (Math.min(Math.PI / 8, Math.acos((vec32.x * vec3.x + vec32.z * vec3.z) / Math.sqrt(d * e)) / 2.5));
+                if (z > 0) return dir * z;
+            }
+        }
+        return original;
+    }
+
+    public static void renderGameOverlay(GuiGraphics graphics) {
+        if (!MinecraftAccessor.getInstance().hasGameLoaded()) return;
+        float partialTick = FactoryAPIClient.getPartialTick();
+        boolean canRenderElement = (mc.screen != null || !mc.options.hideGui);
+        LegacyTip tip = LegacyTipManager.getActualTip();
+        if ((!LegacyTipManager.tips.isEmpty() || tip != null) && canRenderElement) {
+            if (tip == null) tip = LegacyTipManager.updateTip();
+            tip.setX(graphics.guiWidth() - tip.getWidth() - 30);
+            tip.render(graphics, 0, 0, partialTick);
+            if (tip.visibility == Toast.Visibility.HIDE) LegacyTipManager.updateTip();
+        }
+
+        if (mc.options.showAutosaveIndicator().get() && canRenderElement && (mc.gui.autosaveIndicatorValue > 0 || mc.gui.lastAutosaveIndicatorValue > 0) && Mth.clamp(Mth.lerp(FactoryAPIClient.getPartialTick(), mc.gui.lastAutosaveIndicatorValue, mc.gui.autosaveIndicatorValue), 0.0f, 1.0f) > 0.02) {
+            FactoryScreenUtil.disableDepthTest();
+            LegacyRenderUtil.drawAutoSavingIcon(graphics, graphics.guiWidth() - 66, 44);
+            FactoryScreenUtil.enableDepthTest();
+        }
+
+        if (GLFW.glfwGetInputMode(mc.getWindow().handle(), GLFW.GLFW_CURSOR) == GLFW.GLFW_CURSOR_HIDDEN && !Legacy4JClient.controllerManager.isCursorDisabled && !LegacyOptions.hasSystemCursor()) {
+            graphics.pose().pushMatrix();
+            graphics.pose().translate(Legacy4JClient.controllerManager.getVisualPointerX() + LegacyTipManager.getTipXOffset(), Legacy4JClient.controllerManager.getVisualPointerY());
+            FactoryGuiGraphics.of(graphics).blitSprite(LegacyOptions.getUIMode().isFHD() ? LegacySprites.POINTER : LegacySprites.SMALL_POINTER, -8, -8, 16, 16);
+            graphics.pose().popMatrix();
+        }
+    }
+
+    public static void renderPotionLevel(GuiGraphics graphics, int i, int j, ItemStack itemStack) {
+        if (!LegacyOptions.legacyPotionsBar.get()) return;
+        int potionLevel = LegacyItemUtil.getPotionLevel(itemStack);
+        if (potionLevel > 0) {
+            int x = i + 3;
+            int y = j + 13;
+            graphics.fill(x, y, x + 11, y + 2, -16777216);
+            for (int k = 0; k < potionLevel; k++) {
+                graphics.fill(x + k * 3, y, x + k * 3 + 2, y + 2, 0xFF00DDE5);
+            }
+        }
+    }
+
+    public static Screen getInitialScreen() {
+        TitleScreen titleScreen = new TitleScreen(LegacyOptions.titleScreenFade.get());
+        if (LegacyOptions.skipInitialSaveWarning.get()) {
+            return titleScreen;
+        } else return ConfirmationScreen.createSaveInfoScreen(titleScreen);
+    }
+
+    public static ScreenDirection getScreenDirection(double x, double y) {
+        if (Math.abs(x) > Math.abs(y)) {
+            if (x > 0)
+                return ScreenDirection.RIGHT;
+            else if (x < 0)
+                return ScreenDirection.LEFT;
+        }
+        if (y > 0)
+            return ScreenDirection.DOWN;
+        else if (y < 0)
+            return ScreenDirection.UP;
+        return null;
+    }
+
+    public static boolean hasHorizontalArtifacts() {
+        return isNvidia;
+    }
+}

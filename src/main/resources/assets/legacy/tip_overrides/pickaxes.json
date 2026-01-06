@@ -1,0 +1,6 @@
+{
+  "overrides": {
+    "item": "#pickaxes",
+    "tip": {"translate": "item.minecraft.pickaxe.tip"}
+  }
+}

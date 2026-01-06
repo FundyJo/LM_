@@ -1,0 +1,377 @@
+package wily.legacy.client.screen;
+
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.logging.LogUtils;
+import net.minecraft.ChatFormatting;
+import net.minecraft.CrashReport;
+import net.minecraft.SharedConstants;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.screens.*;
+import net.minecraft.client.input.InputWithModifiers;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.storage.LevelStorageException;
+import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.world.level.storage.LevelSummary;
+import net.minecraft.world.level.validation.ContentValidationException;
+import net.minecraft.world.level.validation.ForbiddenSymlinkInfo;
+import org.apache.commons.io.FileUtils;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import wily.factoryapi.FactoryAPI;
+import wily.factoryapi.base.client.FactoryGuiGraphics;
+import wily.factoryapi.base.client.UIAccessor;
+import wily.factoryapi.util.FactoryScreenUtil;
+import wily.legacy.Legacy4J;
+import wily.legacy.client.LegacyOptions;
+import wily.legacy.client.LegacySaveCache;
+import wily.legacy.util.LegacyComponents;
+import wily.legacy.util.client.LegacyRenderUtil;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+
+public class SaveRenderableList extends RenderableVList {
+    static final ResourceLocation ERROR_HIGHLIGHTED = FactoryAPI.createVanillaLocation("world_list/error_highlighted");
+    static final ResourceLocation ERROR = FactoryAPI.createVanillaLocation("world_list/error");
+    static final ResourceLocation MARKED_JOIN_HIGHLIGHTED = FactoryAPI.createVanillaLocation("world_list/marked_join_highlighted");
+    static final ResourceLocation MARKED_JOIN = FactoryAPI.createVanillaLocation("world_list/marked_join");
+    static final ResourceLocation WARNING_HIGHLIGHTED = FactoryAPI.createVanillaLocation("world_list/warning_highlighted");
+    static final ResourceLocation WARNING = FactoryAPI.createVanillaLocation("world_list/warning");
+    static final ResourceLocation JOIN_HIGHLIGHTED = FactoryAPI.createVanillaLocation("world_list/join_highlighted");
+    static final ResourceLocation JOIN = FactoryAPI.createVanillaLocation("world_list/join");
+    static final Logger LOGGER = LogUtils.getLogger();
+    static final Component FROM_NEWER_TOOLTIP_1 = Component.translatable("selectWorld.tooltip.fromNewerVersion1").withStyle(ChatFormatting.RED);
+    static final Component FROM_NEWER_TOOLTIP_2 = Component.translatable("selectWorld.tooltip.fromNewerVersion2").withStyle(ChatFormatting.RED);
+    static final Component SNAPSHOT_TOOLTIP_1 = Component.translatable("selectWorld.tooltip.snapshot1").withStyle(ChatFormatting.GOLD);
+    static final Component SNAPSHOT_TOOLTIP_2 = Component.translatable("selectWorld.tooltip.snapshot2").withStyle(ChatFormatting.GOLD);
+    static final Component WORLD_LOCKED_TOOLTIP = Component.translatable("selectWorld.locked").withStyle(ChatFormatting.RED);
+    static final Component WORLD_REQUIRES_CONVERSION = Component.translatable("selectWorld.conversion.tooltip").withStyle(ChatFormatting.RED);
+    static final Component WORLD_EXPERIMENTAL = Component.translatable("selectWorld.experimental");
+    static final Component INCOMPATIBLE_VERSION_TOOLTIP = Component.translatable("selectWorld.incompatible.tooltip").withStyle(ChatFormatting.RED);
+    public static LoadingCache<LevelSummary, Long> sizeCache = CacheBuilder.newBuilder().build(new CacheLoader<>() {
+        @Override
+        public Long load(LevelSummary key) {
+            return FileUtils.sizeOfDirectory(Minecraft.getInstance().getLevelSource().getBaseDir().resolve(key.getLevelId()).toFile());
+        }
+    });
+    public static LoadingCache<LevelSummary, FaviconTexture> iconCache = CacheBuilder.newBuilder().build(new CacheLoader<>() {
+        @Override
+        public FaviconTexture load(LevelSummary key) {
+            Path iconFile = key.getIcon();
+            try {
+                BasicFileAttributes basicFileAttributes = Files.readAttributes(iconFile, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                if (basicFileAttributes.isSymbolicLink()) {
+                    List<ForbiddenSymlinkInfo> list = /*? if >1.20.2 {*/Minecraft.getInstance().directoryValidator().validateSymlink(iconFile)/*?} else {*//*new ArrayList<>()*//*?}*/;
+                    //? if <=1.20.2
+                    /*Minecraft.getInstance().getLevelSource().getWorldDirValidator().validateSymlink(iconFile,list);*/
+                    if (!list.isEmpty()) {
+                        Legacy4J.LOGGER.warn("{}", ContentValidationException.getMessage(iconFile, list));
+                        iconFile = null;
+                    } else {
+                        basicFileAttributes = Files.readAttributes(iconFile, BasicFileAttributes.class);
+                    }
+                }
+                if (!basicFileAttributes.isRegularFile()) {
+                    iconFile = null;
+                }
+            } catch (NoSuchFileException noSuchFileException) {
+                iconFile = null;
+            } catch (IOException iOException) {
+                Legacy4J.LOGGER.error("could not validate symlink", iOException);
+                iconFile = null;
+            }
+            FaviconTexture icon = FaviconTexture.forWorld(Minecraft.getInstance().getTextureManager(), key.getLevelId());
+            boolean bl = iconFile != null && Files.isRegularFile(iconFile);
+            if (bl) {
+                try (InputStream inputStream = Files.newInputStream(iconFile)) {
+                    icon.upload(NativeImage.read(inputStream));
+                } catch (Throwable throwable) {
+                    Legacy4J.LOGGER.error("Invalid icon for world {}", key.getLevelId(), throwable);
+                }
+            } else {
+                icon.clear();
+            }
+            return icon;
+        }
+    });
+    @Nullable
+    public List<LevelSummary> currentlyDisplayedLevels;
+    public boolean firstLoad = true;
+    protected Minecraft minecraft;
+    private CompletableFuture<List<LevelSummary>> pendingLevels;
+    private String filter;
+
+    public SaveRenderableList(UIAccessor accessor) {
+        super(accessor);
+        layoutSpacing(l -> 0);
+        this.minecraft = Minecraft.getInstance();
+        this.filter = "";
+        reloadSaveList();
+    }
+
+    public static void resetIconCache() {
+        SaveRenderableList.iconCache.asMap().forEach((s, i) -> i.close());
+        SaveRenderableList.iconCache.invalidateAll();
+    }
+
+    public static void handleLevelLoadFailure(Minecraft minecraft, Component component) {
+        minecraft.setScreen(new ConfirmationScreen(new TitleScreen(), Component.translatable("selectWorld.futureworld.error.title"), component, (b) -> {
+        }) {
+            protected void addButtons() {
+                renderableVList.addRenderable(okButton = Button.builder(Component.translatable("gui.ok"), (b) -> onClose()).bounds(panel.x + 15, panel.y + panel.height - 30, 200, 20).build());
+            }
+        });
+    }
+
+    @Nullable
+    public List<LevelSummary> pollLevelsIgnoreErrors() {
+        try {
+            return this.pendingLevels.getNow(null);
+        } catch (CancellationException | CompletionException runtimeException) {
+            return null;
+        }
+    }
+
+    void reloadSaveList() {
+        this.pendingLevels = this.loadLevels();
+    }
+
+    public void updateFilter(String string) {
+        if (this.currentlyDisplayedLevels != null && !string.equals(this.filter)) {
+            this.fillLevels(string, this.currentlyDisplayedLevels);
+        }
+        this.filter = string;
+    }
+
+    private CompletableFuture<List<LevelSummary>> loadLevels() {
+        LevelStorageSource.LevelCandidates levelCandidates;
+        try {
+            levelCandidates = this.minecraft.getLevelSource().findLevelCandidates();
+        } catch (LevelStorageException levelStorageException) {
+            Legacy4J.LOGGER.error("Couldn't load level list", levelStorageException);
+            handleLevelLoadFailure(minecraft, levelStorageException.getMessageComponent());
+            return CompletableFuture.completedFuture(List.of());
+        }
+
+        if (levelCandidates.isEmpty()) {
+            return CompletableFuture.completedFuture(List.of());
+        }
+
+        if (currentlyDisplayedLevels == null || currentlyDisplayedLevels.isEmpty())
+            getScreen(PlayGameScreen.class).isLoading = true;
+        CompletableFuture<List<LevelSummary>> completableFuture = this.minecraft.getLevelSource().loadLevelSummaries(levelCandidates);
+        completableFuture.thenAcceptAsync(l -> l.forEach(s -> sizeCache.refresh(s)));
+        return completableFuture.exceptionally(throwable -> {
+            this.minecraft.delayCrash(CrashReport.forThrowable(throwable, "Couldn't load level list"));
+            return List.of();
+        });
+    }
+
+    public void addCreationButtons() {
+        if (!accessor.getBoolean("hasTabList", true))
+            getScreen(PlayGameScreen.class).creationList.renderables.forEach(this::addRenderable);
+    }
+
+    public void fillLevels(String filter, List<LevelSummary> list) {
+        getScreen(PlayGameScreen.class).isLoading = false;
+        renderables.clear();
+        addCreationButtons();
+        if (list != null) {
+            filter = filter.toLowerCase(Locale.ROOT);
+            for (LevelSummary summary : list) {
+                if (!this.filterAccepts(filter, summary)) continue;
+                addRenderable(new SaveButton(0, 0, 270, 30, summary));
+            }
+
+        }
+        this.currentlyDisplayedLevels = list;
+        getScreen().triggerImmediateNarration(true);
+    }
+
+    @Override
+    public void init(String name, int leftPos, int topPos, int listWidth, int listHeight) {
+        if (firstLoad) {
+            addCreationButtons();
+            firstLoad = false;
+        }
+        super.init(name, leftPos, topPos, listWidth, listHeight);
+    }
+
+    private boolean filterAccepts(String string, LevelSummary levelSummary) {
+        return levelSummary.getLevelName().toLowerCase(Locale.ROOT).contains(string) || levelSummary.getLevelId().toLowerCase(Locale.ROOT).contains(string);
+    }
+
+    public LevelSummary getLevelSummary(int saveButtonIndex) {
+        if (currentlyDisplayedLevels != null && renderables.get(saveButtonIndex) instanceof AbstractButton && saveButtonIndex < currentlyDisplayedLevels.size())
+            return currentlyDisplayedLevels.get(saveButtonIndex);
+        return null;
+    }
+
+    public void joinWorld(LevelSummary summary) {
+        if (summary.primaryActionActive()) {
+            if (summary instanceof LevelSummary.SymlinkLevelSummary) {
+                this.minecraft.setScreen(NoticeWithLinkScreen.createWorldSymlinkWarningScreen(() -> {
+                    this.minecraft.setScreen(getScreen());
+                }));
+            } else {
+                loadWorld(summary);
+            }
+        }
+    }
+
+    public void loadWorld(LevelSummary summary) {
+        SaveRenderableList.this.reloadSaveList();
+        if (LegacyOptions.directSaveLoad.get()) {
+            LegacySaveCache.copySaveBtwSources(LoadSaveScreen.getSummaryAccess(Minecraft.getInstance().getLevelSource(), summary), LegacySaveCache.getLevelStorageSource());
+            LoadSaveScreen.loadWorld(getScreen(), minecraft, LegacySaveCache.getLevelStorageSource(), summary);
+        } else minecraft.setScreen(new LoadSaveScreen(getScreen(), summary, LegacySaveCache.getLevelStorageSource()) {
+            @Override
+            public void completeLoad() {
+                if (LegacyOptions.saveCache.get())
+                    LegacySaveCache.copySaveBtwSources(LoadSaveScreen.getSummaryAccess(Minecraft.getInstance().getLevelSource(), summary), LegacySaveCache.currentWorldSource);
+                super.completeLoad();
+            }
+        });
+    }
+
+    public void deleteSave(LevelSummary summary) {
+        LevelStorageSource levelStorageSource = this.minecraft.getLevelSource();
+        String string = summary.getLevelId();
+        try (LevelStorageSource.LevelStorageAccess levelStorageAccess = levelStorageSource.createAccess(string)) {
+            levelStorageAccess.deleteLevel();
+        } catch (IOException iOException) {
+            SystemToast.onWorldDeleteFailure(this.minecraft, string);
+            LOGGER.error("Failed to delete world {}", string, iOException);
+        }
+        reloadSaveList();
+        minecraft.setScreen(getScreen());
+    }
+
+    public class SaveButton extends CreationList.ContentButton implements ControlTooltip.ActionHolder {
+        public final LevelSummary summary;
+
+        public SaveButton(int i, int j, int k, int l, LevelSummary summary) {
+            super(SaveRenderableList.this, i, j, k, l, Component.literal(summary.getLevelName()));
+            this.summary = summary;
+        }
+
+        @Override
+        public void onPress(InputWithModifiers input) {
+            joinWorld(summary);
+        }
+
+        @Override
+        public void onClick(MouseButtonEvent event, boolean bl) {
+            if (summary.isDisabled()) return;
+            boolean hoverIcon = LegacyRenderUtil.isMouseOver(event.x(), event.y(), getX() + 5, getY() + 5, 20, height);
+            if (hoverIcon || isFocused()) onPress(event);
+        }
+
+        @Override
+        public boolean keyPressed(KeyEvent keyEvent) {
+            if (keyEvent.key() == InputConstants.KEY_O) {
+                minecraft.setScreen(new SaveOptionsScreen(getScreen(PlayGameScreen.class), summary));
+                getScreen().setFocused(this);
+                return true;
+            }
+            return super.keyPressed(keyEvent);
+        }
+
+        @Override
+        protected MutableComponent createNarrationMessage() {
+            MutableComponent component = Component.translatable("narrator.select.world_info", summary.getLevelName(), new Date(summary.getLastPlayed()).toString(), summary.getInfo());
+            if (summary.isLocked()) {
+                component = CommonComponents.joinForNarration(component, WORLD_LOCKED_TOOLTIP);
+            }
+            if (summary.isExperimental()) {
+                component = CommonComponents.joinForNarration(component, WORLD_EXPERIMENTAL);
+            }
+            return Component.translatable("narrator.select", component);
+        }
+
+        @Override
+        public void renderIcon(GuiGraphics guiGraphics, int mouseX, int mouseY, int x, int y, int width, int height) {
+            FactoryGuiGraphics.of(guiGraphics).blit(iconCache.getUnchecked(summary).textureLocation(), getX() + x, getY() + y, 0, 0, width, height, width, height);
+        }
+
+        @Override
+        public void renderIconHighlight(GuiGraphics guiGraphics, int mouseX, int mouseY, int x, int y, int width, int height) {
+            super.renderIconHighlight(guiGraphics, mouseX, mouseY, x, y, width, height);
+
+            boolean hoverIcon = LegacyRenderUtil.isMouseOver(mouseX, mouseY, getX() + x, getY() + y, width, height);
+            ResourceLocation resourceLocation = hoverIcon ? JOIN_HIGHLIGHTED : JOIN;
+            ResourceLocation resourceLocation2 = hoverIcon ? WARNING_HIGHLIGHTED : WARNING;
+            ResourceLocation resourceLocation3 = hoverIcon ? ERROR_HIGHLIGHTED : ERROR;
+            ResourceLocation resourceLocation4 = hoverIcon ? MARKED_JOIN_HIGHLIGHTED : MARKED_JOIN;
+            if (summary instanceof LevelSummary.SymlinkLevelSummary/*? if >=1.20.3 {*/ || summary instanceof LevelSummary.CorruptedLevelSummary/*?}*/) {
+                FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation3, getX() + x, getY() + y, width, height);
+                FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation4, getX() + x, getY() + y, width, height);
+                return;
+            }
+            if (summary.isLocked()) {
+                FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation3, getX() + x, getY() + y, width, height);
+                if (hoverIcon) {
+                    guiGraphics.setTooltipForNextFrame(minecraft.font, minecraft.font.split(WORLD_LOCKED_TOOLTIP, 175), mouseX, mouseY);
+                }
+            } else if (summary.requiresManualConversion()) {
+                FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation3, getX() + x, getY() + y, width, height);
+                if (hoverIcon) {
+                    guiGraphics.setTooltipForNextFrame(minecraft.font, minecraft.font.split(WORLD_REQUIRES_CONVERSION, 175), mouseX, mouseY);
+                }
+            } else if (!summary.isCompatible()) {
+                FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation3, getX() + x, getY() + y, width, height);
+                if (hoverIcon) {
+                    guiGraphics.setTooltipForNextFrame(minecraft.font, minecraft.font.split(INCOMPATIBLE_VERSION_TOOLTIP, 175), mouseX, mouseY);
+                }
+            } else if (summary./*? if >1.20.2 {*/shouldBackup/*?} else {*//*markVersionInList*//*?}*/()) {
+                FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation4, getX() + x, getY() + y, width, height);
+                if (summary./*? if >1.20.2 {*/isDowngrade/*?} else {*//*requiresManualConversion*//*?}*/()) {
+                    FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation3, getX() + x, getY() + y, width, height);
+                    if (hoverIcon) {
+                        guiGraphics.setTooltipForNextFrame(minecraft.font, ImmutableList.of(FROM_NEWER_TOOLTIP_1.getVisualOrderText(), FROM_NEWER_TOOLTIP_2.getVisualOrderText()), mouseX, mouseY);
+                    }
+                } else if (!SharedConstants.getCurrentVersion().stable()) {
+                    FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation2, getX() + x, getY() + y, width, height);
+                    if (hoverIcon) {
+                        guiGraphics.setTooltipForNextFrame(minecraft.font, ImmutableList.of(SNAPSHOT_TOOLTIP_1.getVisualOrderText(), SNAPSHOT_TOOLTIP_2.getVisualOrderText()), mouseX, mouseY);
+                    }
+                }
+            } else {
+                FactoryGuiGraphics.of(guiGraphics).blitSprite(resourceLocation, getX() + x, getY() + y, width, height);
+            }
+        }
+
+        @Override
+        public @Nullable Component getAction(Context context) {
+            return context.actionOfContext(KeyContext.class, c -> c.key() == InputConstants.KEY_O && isFocused() ? LegacyComponents.SAVE_OPTIONS : ControlTooltip.getSelectAction(this, c));
+        }
+    }
+
+}

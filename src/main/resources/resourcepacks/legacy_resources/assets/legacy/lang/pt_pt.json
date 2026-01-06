@@ -1,0 +1,21 @@
+{
+  "connect.connecting": "Conectando",
+  "createWorld.tab.more.title": "Mais Opções",
+  "createWorld.tab.world.title": "Opções de Mundo",
+  "disconnect.quitting": "Saindo do Jogo",
+  "gui.ok": "OK",
+  "key.attack": "Ação",
+  "key.inventory": "Inventário",
+  "key.use": "Usar",
+  "menu.options": "Ajuda e Opções",
+  "menu.quit": "Sair do Jogo",
+  "menu.returnToGame": "Continuar Jogo",
+  "menu.savingLevel": "Preparando para Salvar Nível",
+  "options.autosaveIndicator": "Exibir Ícone de Salvamento",
+  "options.key.toggleSneak": "Alternar Agachar",
+  "options.key.toggleSprint": "Alternar Correr",
+  "options.key.toggleUse": "Alternar Uso",
+  "options.key.toggleAttack": "Alternar Ataque",
+  "options.language": "Linguagens",
+  "soundCategory.master": "Som"
+}
