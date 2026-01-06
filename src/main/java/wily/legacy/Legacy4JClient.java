@@ -356,6 +356,11 @@ public class Legacy4JClient {
     public static void clientPlayerJoin(LocalPlayer p) {
         gameRules = new GameRules(/*? if >=1.21.2 {*/p.connection.enabledFeatures()/*?}*/);
         LegacyCreativeTabListing.rebuildVanillaCreativeTabsItems(Minecraft.getInstance());
+        
+        // Initialize MinigamesController for this level so it can receive synced configs from server
+        if (p.level() != null) {
+            MinigamesController.getMinigameController(p.level());
+        }
     }
 
     public static void serverPlayerJoin(ServerPlayer player) {
