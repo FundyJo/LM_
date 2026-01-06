@@ -370,8 +370,9 @@ public class Legacy4JClient {
         System.out.println("🎨 Legacy4JClient.init() CALLED!");
         System.out.println("===========================================");
 
-        // ✅ Initialisiere MinigamesController auch auf Client
-        MinigamesController.init();
+        // MinigamesController is already initialized in Legacy4J.init() which runs on both server and client
+        // via the 'main' entrypoint. Calling it again here would be redundant and may cause issues
+        // with FactoryAPI's storage registration.
 
         ControlType.UpdateEvent.EVENT.register((last, actual) -> {
             UIAccessor uiAccessor = Minecraft.getInstance().screen == null ? FactoryScreenUtil.getGuiAccessor() : FactoryScreenUtil.getScreenAccessor();
