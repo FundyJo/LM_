@@ -370,7 +370,8 @@ public class Legacy4JClient {
         System.out.println("🎨 Legacy4JClient.init() CALLED!");
         System.out.println("===========================================");
 
-        // ✅ Initialisiere MinigamesController auch auf Client
+        // Ensure MinigamesController storage is registered on client
+        // (idempotent - safe to call even if already called from Legacy4J.init())
         MinigamesController.init();
 
         ControlType.UpdateEvent.EVENT.register((last, actual) -> {

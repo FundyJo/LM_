@@ -1,14 +1,14 @@
-package wily.legacy. minigame;
+package wily.legacy.minigame;
 
-import com.mojang.serialization. Codec;
+import com.mojang.serialization.Codec;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft. server.MinecraftServer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net. minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import wily.factoryapi.FactoryAPI;
@@ -23,10 +23,11 @@ import wily.legacy.Legacy4J;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 // attached to dimensions
 public class MinigamesController {
-    public static final Codec<MinigamesController> CODEC = CompoundTag.CODEC. xmap(a -> {
+    public static final Codec<MinigamesController> CODEC = CompoundTag.CODEC.xmap(a -> {
         MinigamesController minigamesController = new MinigamesController();
         minigamesController.readNbt(a);
         return minigamesController;
@@ -38,17 +39,25 @@ public class MinigamesController {
     public static final StreamCodec<ByteBuf, MinigamesController> STREAM_CODEC = ByteBufCodecs.fromCodec(CODEC);
 
     // ===== GLOBALER STORAGE =====
-    public static final FactoryConfig. StorageHandler STORAGE = new FactoryConfig.StorageHandler(true);
+    public static final FactoryConfig.StorageHandler STORAGE = new FactoryConfig.StorageHandler(true);
     private static final ResourceLocation STORAGE_LOCATION = Legacy4J.createModLocation("minigame_controller");
 
     // ===== PRO-LEVEL CONFIGS =====
     private static final Map<Level, FactoryConfig<MinigamesController>> LEVEL_CONFIGS = new HashMap<>();
+
+    // Flag to prevent double initialization which can cause FactoryAPI storage registration conflicts
+    private static final AtomicBoolean initialized = new AtomicBoolean(false);
 
     /**
      * Initialisiert das MinigamesController System.
      * Wird EINMAL in Legacy4J.init() aufgerufen.
      */
     public static void init() {
+        // Prevent double initialization (thread-safe)
+        if (!initialized.compareAndSet(false, true)) {
+            return;
+        }
+
         // Registriere globalen Storage
         FactoryConfig.registerCommonStorage(STORAGE_LOCATION, STORAGE);
 
@@ -59,7 +68,7 @@ public class MinigamesController {
         System.out.println("🎮 Is Client: " + FactoryAPI.isClient());
         System.out.println("===========================================");
 
-        Legacy4J. LOGGER.info("✅ MinigamesController system initialized on {}",
+        Legacy4J.LOGGER.info("✅ MinigamesController system initialized on {}",
                 FactoryAPI.isClient() ? "CLIENT" : "SERVER");
     }
 
@@ -68,9 +77,9 @@ public class MinigamesController {
      * Wird vom IntegratedServerMixin beim Server-Start aufgerufen.
      */
     public static void configureServerFile(MinecraftServer server) {
-        STORAGE.withServerFile(server, "minigame_controller. json");
+        STORAGE.withServerFile(server, "minigame_controller.json");
         STORAGE.load(); // Lade existierende Daten
-        Legacy4J. LOGGER.info("✅ MinigamesController storage configured and loaded");
+        Legacy4J.LOGGER.info("✅ MinigamesController storage configured and loaded");
     }
 
     /**
@@ -83,7 +92,7 @@ public class MinigamesController {
     }
 
     // ===== INSTANCE =====
-    private Minigame<? > activeMinigame = Minigame.NONE;
+    private Minigame<?> activeMinigame = Minigame.NONE;
     private AbstractMinigameController minigameController = Minigame.NONE.newController(this);
     private FactoryConfig<MinigamesController> config;
     private Level level;
@@ -99,7 +108,7 @@ public class MinigamesController {
 
         String levelKey = "level_" + getLevelId(level);
 
-        this.config = FactoryConfig. create(
+        this.config = FactoryConfig.create(
                 levelKey,
                 null,
                 this,
@@ -107,8 +116,8 @@ public class MinigamesController {
                 new MinigameConfigControl(),
                 value -> {
                     if (value != null && value != this) {
-                        this.activeMinigame = value. activeMinigame;
-                        this.minigameController = value. minigameController;
+                        this.activeMinigame = value.activeMinigame;
+                        this.minigameController = value.minigameController;
                         if (this.minigameController != null) {
                             this.minigameController.controller = this;
                         }
@@ -123,7 +132,7 @@ public class MinigamesController {
         // Merke dir die Config für dieses Level
         LEVEL_CONFIGS.put(level, this.config);
 
-        Legacy4J.LOGGER. debug("✅ Config created for level: {}", levelKey);
+        Legacy4J.LOGGER.debug("✅ Config created for level: {}", levelKey);
     }
 
     private static String getLevelId(Level level) {
@@ -144,7 +153,7 @@ public class MinigamesController {
         this.activeMinigame = Minigame.fromId(tag.getInt("activeMinigame").orElse(0));
         CompoundTag compoundTag = tag.getCompound("minigameController").orElseThrow();
         minigameController = this.activeMinigame.newController(this);
-        minigameController. readNbt(compoundTag);
+        minigameController.readNbt(compoundTag);
     }
 
     @Nullable
@@ -292,18 +301,18 @@ public class MinigamesController {
     }
 
     public void playerVoted(ServerPlayer player, ResourceLocation resourceLocation) {
-        minigameController. playerVoted(player, resourceLocation);
+        minigameController.playerVoted(player, resourceLocation);
     }
 
     public boolean isClient() {
-        return level. isClientSide();
+        return level.isClientSide();
     }
 
     // Custom ConfigControl for MinigamesController
     private static class MinigameConfigControl implements FactoryConfigControl<MinigamesController> {
         @Override
         public Codec<MinigamesController> codec() {
-            return MinigamesController. CODEC;
+            return MinigamesController.CODEC;
         }
     }
 }
