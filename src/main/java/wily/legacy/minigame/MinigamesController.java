@@ -111,7 +111,12 @@ public class MinigamesController {
      * dass Sync-Pakete empfangen werden können.
      */
     public static void initClientConfigForLevel(Level level) {
-        if (level == null || !level.isClientSide()) {
+        if (level == null) {
+            Legacy4J.LOGGER.debug("🎮 initClientConfigForLevel called with null level");
+            return;
+        }
+        if (!level.isClientSide()) {
+            Legacy4J.LOGGER.debug("🎮 initClientConfigForLevel called on server-side level, skipping");
             return;
         }
         
@@ -119,15 +124,22 @@ public class MinigamesController {
         
         // Nur initialisieren wenn noch nicht vorhanden
         if (LEVEL_CONFIGS.containsKey(levelKey)) {
+            Legacy4J.LOGGER.debug("🎮 Config already exists for level: {}", levelKey);
             return;
         }
         
         // Erstelle Controller und initialisiere Config
+        // Note: initConfig() stores the controller in LEVEL_CONFIGS
         MinigamesController controller = new MinigamesController();
         controller.level = level;
         controller.initConfig(level);
         
-        Legacy4J.LOGGER.info("🎮 Client config initialized for level: {}", levelKey);
+        // Verify the config was stored
+        if (LEVEL_CONFIGS.containsKey(levelKey)) {
+            Legacy4J.LOGGER.info("🎮 Client config initialized for level: {}", levelKey);
+        } else {
+            Legacy4J.LOGGER.warn("⚠️ Failed to initialize client config for level: {}", levelKey);
+        }
     }
 
     // ===== INSTANCE =====
@@ -172,7 +184,7 @@ public class MinigamesController {
                 new MinigameConfigControl(),
                 value -> {
                     if (value != null && value != this) {
-                        this.activeMinigame = value.activeMinigame;
+                        this.activeMinigame = value.activeMinigame != null ? value.activeMinigame : Minigame.NONE;
                         this.minigameController = value.minigameController;
                         if (this.minigameController != null) {
                             this.minigameController.controller = this;
@@ -181,7 +193,7 @@ public class MinigamesController {
                         if (level.isClientSide()) {
                             setClientConnectedToMinigameServer(true);
                             Legacy4J.LOGGER.info("🎮 Client received minigame sync for level: {} - Active: {}", 
-                                levelKey, this.activeMinigame.getName());
+                                levelKey, this.activeMinigame != null ? this.activeMinigame.getName() : "None");
                         }
                     }
                 },
