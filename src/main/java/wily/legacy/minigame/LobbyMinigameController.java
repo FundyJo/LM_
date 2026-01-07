@@ -435,6 +435,9 @@ public class LobbyMinigameController extends AbstractMinigameController<LobbyMin
             // Registriere Spieler beim Battle-Controller
             battleController.sendToMap(server. registryAccess(), player, false);
 
+            // Sync controller state to player after teleport (so client has correct state for new level)
+            arenaController.syncToPlayer(player);
+
             // Setze Spielmodus auf Adventure
             player.setGameMode(GameType.ADVENTURE);
 

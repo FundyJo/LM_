@@ -172,6 +172,11 @@ public class BattleMinigameController extends AbstractMinigameController<BattleM
             player.teleportTo(lobbyLevel, spawn.x(), spawn.y(), spawn.z(),
                 Set.of(), spawn.yaw(), spawn.pitch(), true);
 
+            // Sync controller state to player after teleport (so client has correct state for new level)
+            if (lobbyController != null) {
+                lobbyController.syncToPlayer(player);
+            }
+
             // Setze Spielmodus auf Adventure
             player.setGameMode(GameType.ADVENTURE);
 

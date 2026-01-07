@@ -42,7 +42,11 @@ public class MinigamesController {
     private static final ResourceLocation STORAGE_LOCATION = Legacy4J.createModLocation("minigame_controller");
 
     // ===== PRO-LEVEL CONFIGS =====
-    private static final Map<Level, FactoryConfig<MinigamesController>> LEVEL_CONFIGS = new HashMap<>();
+    // Use dimension key (String) instead of Level object to support both client and server levels
+    private static final Map<String, FactoryConfig<MinigamesController>> LEVEL_CONFIGS = new HashMap<>();
+    
+    // Client-side flag indicating connection to a minigame server (set via sync from server)
+    private static boolean clientConnectedToMinigameServer = false;
 
     /**
      * Initialisiert das MinigamesController System.
@@ -79,7 +83,51 @@ public class MinigamesController {
     public static void cleanup() {
         STORAGE.save();
         LEVEL_CONFIGS.clear();
+        clientConnectedToMinigameServer = false;
         Legacy4J.LOGGER.info("🔄 MinigamesController cleaned up");
+    }
+    
+    /**
+     * Markiert den Client als mit einem Minigame-Server verbunden.
+     * Wird aufgerufen wenn der Client Minigame-Configs vom Server empfängt.
+     */
+    public static void setClientConnectedToMinigameServer(boolean connected) {
+        clientConnectedToMinigameServer = connected;
+        if (connected) {
+            Legacy4J.LOGGER.info("🎮 Client marked as connected to minigame server");
+        }
+    }
+    
+    /**
+     * Prüft ob der Client als mit einem Minigame-Server verbunden markiert ist.
+     */
+    public static boolean isClientMarkedAsMinigameConnected() {
+        return clientConnectedToMinigameServer;
+    }
+    
+    /**
+     * Initialisiert den Client-Config für ein Level.
+     * Wird aufgerufen wenn der Client einem Server beitritt, um sicherzustellen
+     * dass Sync-Pakete empfangen werden können.
+     */
+    public static void initClientConfigForLevel(Level level) {
+        if (level == null || !level.isClientSide()) {
+            return;
+        }
+        
+        String levelKey = "level_" + getLevelId(level);
+        
+        // Nur initialisieren wenn noch nicht vorhanden
+        if (LEVEL_CONFIGS.containsKey(levelKey)) {
+            return;
+        }
+        
+        // Erstelle Controller und initialisiere Config
+        MinigamesController controller = new MinigamesController();
+        controller.level = level;
+        controller.initConfig(level);
+        
+        Legacy4J.LOGGER.info("🎮 Client config initialized for level: {}", levelKey);
     }
 
     // ===== INSTANCE =====
@@ -98,8 +146,25 @@ public class MinigamesController {
         }
 
         String levelKey = "level_" + getLevelId(level);
+        
+        // Check if config already exists for this dimension (e.g., client synced from server)
+        FactoryConfig<MinigamesController> existingConfig = LEVEL_CONFIGS.get(levelKey);
+        if (existingConfig != null) {
+            this.config = existingConfig;
+            // Update this instance with the existing config's values
+            MinigamesController existingController = existingConfig.get();
+            if (existingController != null && existingController != this) {
+                this.activeMinigame = existingController.activeMinigame;
+                this.minigameController = existingController.minigameController;
+                if (this.minigameController != null) {
+                    this.minigameController.controller = this;
+                }
+            }
+            Legacy4J.LOGGER.debug("✅ Reusing existing config for level: {}", levelKey);
+            return;
+        }
 
-        this.config = FactoryConfig. create(
+        this.config = FactoryConfig.create(
                 levelKey,
                 null,
                 this,
@@ -107,10 +172,16 @@ public class MinigamesController {
                 new MinigameConfigControl(),
                 value -> {
                     if (value != null && value != this) {
-                        this.activeMinigame = value. activeMinigame;
-                        this.minigameController = value. minigameController;
+                        this.activeMinigame = value.activeMinigame;
+                        this.minigameController = value.minigameController;
                         if (this.minigameController != null) {
                             this.minigameController.controller = this;
+                        }
+                        // Mark client as connected to minigame server when receiving sync
+                        if (level.isClientSide()) {
+                            setClientConnectedToMinigameServer(true);
+                            Legacy4J.LOGGER.info("🎮 Client received minigame sync for level: {} - Active: {}", 
+                                levelKey, this.activeMinigame.getName());
                         }
                     }
                 },
@@ -120,10 +191,10 @@ public class MinigamesController {
         // Registriere im globalen Storage
         STORAGE.register(this.config);
 
-        // Merke dir die Config für dieses Level
-        LEVEL_CONFIGS.put(level, this.config);
+        // Merke dir die Config mit dimension key
+        LEVEL_CONFIGS.put(levelKey, this.config);
 
-        Legacy4J.LOGGER. debug("✅ Config created for level: {}", levelKey);
+        Legacy4J.LOGGER.debug("✅ Config created for level: {}", levelKey);
     }
 
     private static String getLevelId(Level level) {
@@ -173,7 +244,8 @@ public class MinigamesController {
             return new MinigamesController();
         }
 
-        FactoryConfig<MinigamesController> config = LEVEL_CONFIGS.get(level);
+        String levelKey = "level_" + getLevelId(level);
+        FactoryConfig<MinigamesController> config = LEVEL_CONFIGS.get(levelKey);
 
         if (config != null) {
             MinigamesController controller = config.get();
@@ -201,13 +273,15 @@ public class MinigamesController {
 
     /**
      * Prüft ob der Client mit einem Minigame-Server verbunden ist.
-     * Nur für Singleplayer/LAN - prüft den IntegratedServer.
+     * Prüft sowohl den IntegratedServer (für Host) als auch den client-seitigen Flag
+     * (für Remote-Clients die Sync-Pakete vom Server empfangen haben).
      */
     private static boolean isClientConnectedToMinigameServer() {
         if (!FactoryAPI.isClient()) {
             return false;
         }
-        return isClientConnectedToMinigameServerInternal();
+        // Check both: integrated server (for host) and client flag (for remote LAN clients)
+        return clientConnectedToMinigameServer || isClientConnectedToMinigameServerInternal();
     }
 
     /**
