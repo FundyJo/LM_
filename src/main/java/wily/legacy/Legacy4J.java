@@ -212,7 +212,7 @@ public class Legacy4J {
         if (server instanceof IMinecraftServer minigameServer && minigameServer.isMinigameServer()) {
             ServerLevel level = (ServerLevel) p.level();
             MinigamesController controller = MinigamesController.getMinigameController(level);
-            controller. syncToPlayer(p);
+            controller.syncToPlayer(p);
         }
     }
 
