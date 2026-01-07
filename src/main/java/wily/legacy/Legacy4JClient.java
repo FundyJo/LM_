@@ -356,6 +356,9 @@ public class Legacy4JClient {
     public static void clientPlayerJoin(LocalPlayer p) {
         gameRules = new GameRules(/*? if >=1.21.2 {*/p.connection.enabledFeatures()/*?}*/);
         LegacyCreativeTabListing.rebuildVanillaCreativeTabsItems(Minecraft.getInstance());
+        
+        // Initialize minigame controller config for client level to receive syncs
+        MinigamesController.initClientConfigForLevel(p.level());
     }
 
     public static void serverPlayerJoin(ServerPlayer player) {
@@ -536,6 +539,8 @@ public class Legacy4JClient {
             PackAlbum.applyDefaultResourceAlbum();
             TopMessage.setSmall(null);
             TopMessage.setMedium(null);
+            // Clear minigame client state on disconnect
+            MinigamesController.setClientConnectedToMinigameServer(false);
         });
         FactoryAPIClient.registerConfigScreen(FactoryAPIPlatform.getModInfo(MOD_ID), Legacy4JSettingsScreen::new);
         FactoryAPIClient.registerDefaultConfigScreen("minecraft", s -> new OptionsScreen(s, Minecraft.getInstance().options));
