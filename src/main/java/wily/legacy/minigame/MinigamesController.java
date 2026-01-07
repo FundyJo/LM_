@@ -127,10 +127,7 @@ public class MinigamesController {
     }
 
     private static String getLevelId(Level level) {
-        if (level instanceof ServerLevel serverLevel) {
-            return serverLevel.dimension().location().toString().replace(":", "_").replace("/", "_");
-        }
-        return "unknown";
+        return level.dimension().location().toString().replace(":", "_").replace("/", "_");
     }
 
     public void writeNbt(CompoundTag tag) {
@@ -190,13 +187,37 @@ public class MinigamesController {
         MinigamesController controller = new MinigamesController();
         controller.level = level;
 
-        // Nur Config initialisieren wenn wir in einem Minigame-Server sind
+        // Config initialisieren wenn wir in einem Minigame-Server sind
         MinecraftServer server = level.getServer();
         if (server instanceof IMinecraftServer minigameServer && minigameServer.isMinigameServer()) {
+            controller.initConfig(level);
+        } else if (level.isClientSide() && isClientConnectedToMinigameServer()) {
+            // Auch auf Client-Seite initialisieren wenn verbunden mit Minigame-Server
             controller.initConfig(level);
         }
 
         return controller;
+    }
+
+    /**
+     * Prüft ob der Client mit einem Minigame-Server verbunden ist.
+     * Nur für Singleplayer/LAN - prüft den IntegratedServer.
+     */
+    private static boolean isClientConnectedToMinigameServer() {
+        if (!FactoryAPI.isClient()) {
+            return false;
+        }
+        return isClientConnectedToMinigameServerInternal();
+    }
+
+    /**
+     * Interne Methode - nur auf Client-Seite aufrufen!
+     * Prüft ob der IntegratedServer ein Minigame-Server ist.
+     */
+    private static boolean isClientConnectedToMinigameServerInternal() {
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        MinecraftServer server = minecraft.getSingleplayerServer();
+        return server instanceof IMinecraftServer minigameServer && minigameServer.isMinigameServer();
     }
 
     public void dirty() {
