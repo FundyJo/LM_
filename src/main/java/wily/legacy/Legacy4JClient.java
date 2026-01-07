@@ -373,6 +373,9 @@ public class Legacy4JClient {
         System.out.println("🎨 Legacy4JClient.init() CALLED!");
         System.out.println("===========================================");
 
+        // ✅ Register Client Mixin Config Storage
+        FactoryConfig.registerCommonStorage(Legacy4J.createModLocation("mixin_client"), MIXIN_CONFIGS_STORAGE);
+
         // ✅ Initialisiere MinigamesController auch auf Client
         MinigamesController.init();
 
